@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>p_ivanovskiy — Контент-студия</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream: #F5F0E8;
+  --dark: #1A1714;
+  --brown: #3D2B1F;
+  --gold: #C4993A;
+  --gold-light: #E8C96A;
+  --muted: #7A6E65;
+  --surface: #EDEBE4;
+  --border: rgba(61,43,31,0.12);
+  --radius: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--dark); min-height: 100vh; }
+
+header {
+  background: var(--dark);
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-logo { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--gold); letter-spacing: 0.02em; }
+.header-sub { font-size: 11px; color: rgba(255,255,255,0.3); letter-spacing: 0.06em; margin-top: 1px; }
+
+.main-layout { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 60px); }
+
+.sidebar {
+  background: var(--dark);
+  padding: 1.5rem 0;
+  border-right: 1px solid rgba(255,255,255,0.05);
+}
+.sidebar-label {
+  font-size: 10px; letter-spacing: 0.1em; color: rgba(255,255,255,0.25);
+  padding: 0 1.75rem; margin-bottom: 6px; display: block;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 1.25rem; cursor: pointer; color: rgba(255,255,255,0.45);
+  font-size: 14px; transition: all 0.15s; border: none; background: none;
+  width: 100%; text-align: left; font-family: 'DM Sans', sans-serif; margin-bottom: 2px;
+}
+.nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); }
+.nav-item.active { background: rgba(196,153,58,0.15); color: var(--gold-light); }
+.nav-icon { font-size: 15px; width: 20px; text-align: center; }
+
+.content { background: var(--cream); padding: 2rem; overflow-y: auto; }
+.page { display: none; }
+.page.active { display: block; }
+
+.page-title { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 400; margin-bottom: 4px; }
+.page-desc { font-size: 14px; color: var(--muted); margin-bottom: 1.75rem; }
+
+.tools-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 1.75rem; }
+.tool-card {
+  background: white; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.1rem 1.25rem; cursor: pointer; transition: all 0.15s;
+}
+.tool-card:hover { border-color: var(--gold); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.07); }
+.tool-card.active { border-color: var(--gold); background: rgba(196,153,58,0.03); }
+.tool-icon { font-size: 20px; margin-bottom: 8px; display: block; }
+.tool-name { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+.tool-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+.form-block { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; display: none; }
+.form-block.active { display: block; }
+
+.form-label { font-size: 13px; font-weight: 500; color: var(--dark); margin-bottom: 7px; display: block; }
+.form-hint { font-size: 12px; color: var(--muted); margin-bottom: 8px; display: block; }
+
+textarea.inp {
+  width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 14px; font-family: 'DM Sans', sans-serif; background: var(--surface);
+  color: var(--dark); outline: none; resize: vertical; line-height: 1.55;
+  transition: border-color 0.2s; margin-bottom: 1rem;
+}
+textarea.inp:focus { border-color: var(--gold); background: white; }
+
+.chips-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
+.chip {
+  padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+  transition: all 0.15s; font-family: 'DM Sans', sans-serif; white-space: nowrap;
+}
+.chip:hover { border-color: var(--gold); color: var(--dark); }
+.chip.active { background: var(--dark); color: var(--gold-light); border-color: var(--dark); }
+
+.gen-btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px;
+  background: var(--dark); color: var(--cream); border: none; border-radius: 8px;
+  font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 500;
+  cursor: pointer; transition: background 0.2s;
+}
+.gen-btn:hover { background: var(--brown); }
+.gen-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.spinner {
+  display: none; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.result-wrap { background: white; border: 1px solid var(--border); border-radius: var(--radius); margin-top: 1.5rem; overflow: hidden; display: none; }
+.result-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.result-label { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.06em; }
+.copy-btn {
+  padding: 5px 12px; background: none; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; font-family: 'DM Sans', sans-serif; color: var(--muted); cursor: pointer; transition: all 0.15s;
+}
+.copy-btn:hover { border-color: var(--dark); color: var(--dark); }
+.result-body { padding: 1.25rem 1.5rem; font-size: 14px; line-height: 1.75; white-space: pre-wrap; }
+
+.dots-loader { display: flex; gap: 5px; padding: 1.25rem 1.5rem; align-items: center; }
+.dot { width: 6px; height: 6px; background: var(--gold); border-radius: 50%; animation: bounce 1.1s infinite; }
+.dot:nth-child(2) { animation-delay: 0.18s; }
+.dot:nth-child(3) { animation-delay: 0.36s; }
+.dots-loader span { font-size: 13px; color: var(--muted); margin-left: 6px; }
+@keyframes bounce { 0%,100%{transform:translateY(0);opacity:.35} 50%{transform:translateY(-6px);opacity:1} }
+
+@media(max-width:680px){
+  .main-layout{grid-template-columns:1fr}
+  .sidebar{display:flex;overflow-x:auto;padding:.75rem;gap:4px;border-right:none;border-bottom:1px solid rgba(255,255,255,.06)}
+  .sidebar-label{display:none}
+  .nav-item{white-space:nowrap;flex-shrink:0;padding:8px 14px}
+  .content{padding:1.25rem}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="header-logo">p_ivanovskiy</div>
+    <div class="header-sub">КОНТЕНТ-СТУДИЯ</div>
+  </div>
+</header>
+
+<div class="main-layout">
+  <nav class="sidebar">
+    <span class="sidebar-label">ФОРМАТЫ</span>
+    <button class="nav-item active" onclick="switchPage('reels',this)"><span class="nav-icon">▶</span>Рилс</button>
+    <button class="nav-item" onclick="switchPage('carousel',this)"><span class="nav-icon">⊞</span>Карусель</button>
+    <button class="nav-item" onclick="switchPage('posts',this)"><span class="nav-icon">✦</span>Посты</button>
+    <button class="nav-item" onclick="switchPage('stories',this)"><span class="nav-icon">◯</span>Сторис</button>
+    <div style="height:1px;background:rgba(255,255,255,0.06);margin:10px 1.25rem"></div>
+    <span class="sidebar-label">АНАЛИТИКА</span>
+    <button class="nav-item" onclick="switchPage('analysis',this)"><span class="nav-icon">📊</span>Анализ</button>
+  </nav>
+
+  <main class="content">
+
+    <!-- REELS -->
+    <div id="page-reels" class="page active">
+      <div class="page-title">Рилс</div>
+      <div class="page-desc">Идеи, хуки, сценарии и подписи для видео</div>
+
+      <div class="tools-grid">
+        <div class="tool-card active" onclick="selectTool('reels','ideas',this)">
+          <span class="tool-icon">💡</span>
+          <div class="tool-name">Идеи для рилс</div>
+          <div class="tool-desc">10 идей под нишу и формат</div>
+        </div>
+        <div class="tool-card" onclick="selectTool('reels','hook',this)">
+          <span class="tool-icon">🎣</span>
+          <div class="tool-name">Хук для видео</div>
+          <div class="tool-desc">5 вариантов цепляющего начала</div>
+        </div>
+        <div class="tool-card" onclick="selectTool('reels','script',this)">
+          <span class="tool-icon">📝</span>
+          <div class="tool-name">Сценарий</div>
+          <div class="tool-desc">Полный скрипт с таймингами</div>
+        </div>
+        <div class="tool-card" onclick="selectTool('reels','caption',this)">
+          <span class="tool-icon">✍️</span>
+          <div class="tool-name">Подпись + хэштеги</div>
+          <div class="tool-desc">Текст под публикацию</div>
+        </div>
+      </div>
+
+      <div id="form-reels-ideas" class="form-block active">
+        <label class="form-label">Уточни тему <span style="color:var(--muted);font-weight:400">(или оставь пустым)</span></label>
+        <textarea class="inp" id="inp-reels-ideas" rows="3" placeholder="Например: процесс темпера шоколада, ошибки новичков в кондитерке, покрытие велюром..."></textarea>
+        <label class="form-label">Формат</label>
+        <div class="chips-row" id="cr-reels-format">
+          <span class="chip active" data-val="трендовый залетающий">Трендовый</span>
+          <span class="chip" data-val="обучающий">Обучающий</span>
+          <span class="chip" data-val="закулисье процесса">Закулисье</span>
+          <span class="chip" data-val="до/после результата">До/после</span>
+          <span class="chip" data-val="провокационное мнение эксперта">Провокация</span>
+        </div>
+        <button class="gen-btn" id="btn-reels-ideas" onclick="generate('reels-ideas')">
+          <span class="spinner" id="sp-reels-ideas"></span>Сгенерировать
+        </button>
+        <div class="result-wrap" id="res-reels-ideas">
+          <div class="result-head"><span class="result-label">РЕЗУЛЬТАТ</span><button class="copy-btn" onclick="copyRes('reels-ideas')">📋 Копировать</button></div>
+          <div class="result-body" id="body-reels-ideas"></div>
+        </div>
+      </div>
+
+      <div id="form-reels-hook" class="form-block">
+        <label class="form-label">О чём видео?</label>
+        <textarea class="inp" id="inp-reels-hook" rows="3" placeholder="Например: как я покрываю торт велюром за 2 минуты и почему у большинства не получается..."></textarea>
+        <button class="gen-btn" id="btn-reels-hook" onclick="generate('reels-hook')">
+          <span class="spinner" id="sp-reels-hook"></span>Написать 5 хуков
+        </button>
+        <div class="result-wrap" id="res-reels-hook">
+          <div class="result-head"><span class="result-label">РЕЗУЛЬТАТ</span><button class="copy-btn" onclick="copyRes('reels-hook')">📋 Копировать</button></div>
+          <div class="result-body" id="body-reels-hook"></div>
+        </div>
+      </div>
+
+      <div id="form-reels-script" class="form-block">
+        <label class="form-label">Тема рилс</label>
+        <textarea class="inp" id="inp-reels-script" rows="3" placeholder="Например: показываю как сделать зеркальную глазурь и почему она идёт пузырями у большинства..."></textarea>
+        <label class="form-label">Длина видео</label>
+        <div class="chips-row" id="cr-reels-len">
+          <span class="chip active" data-val="15-30 секунд">15–30 сек</span>
+          <span class="chip" data-val="30-60 секунд">30–60 сек</span>
+          <span class="chip" data-val="60-90 секунд">60–90 сек</span>
+        </div>
+        <button class="gen-btn" id="btn-reels-script" onclick="generate('reels-script')">
+          <span class="spinner" id="sp-reels-script"></span>Написать сценарий
+        </button>
+        <div class="result-wrap" id="res-reels-script">
+          <div class="result-head"><span class="result-label">РЕЗУЛЬТАТ</span><button class="copy-btn" onclick="copyRes('reels-script')">📋 Копировать</button></div>
+          <div class="result-body" id="body-reels-script"></div>
+        </div>
+      </div>
+
+      <div id="form-reels-caption" class="form-block">
+        <label class="form-label">Кратко — о чём рилс?</label>
+        <textarea class="inp" id="inp-reels-caption" rows="3" placeholder="Например: делаю яблочный тарт с карамелью и соленой пеной — показываю весь процесс..."></textarea>
+        <button class="gen-btn" id="btn-reels-caption" onclick="generate('reels-caption')">
+          <span class="spinner" id="sp-reels-caption"></span>Написать подпись
+        </button>
+        <div class="result-wrap" id="res-reels-caption">
+          <div class="result-head"><span class="result-label">РЕЗУЛЬТАТ</span><button class="copy-btn" onclick="copyRes('reels-caption')">📋 Копировать</button></div>
+          <div class="result-body" id="body-reels-caption"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAROUSEL -->
+    <div id="page-carousel" class="page">
+      <div class="page-title">Карусель</div>
+      <div class="page-desc">Вставь информацию — получи готовую карусель в стиле Dark Fire</div>
+
+      <div class="form-block active">
+        <label class="form-label">Твоя информация, тема или текст</label>
+        <span class="form-hint">Вставь всё что есть: рецепт, технику, факты, идею. Чем больше — тем лучше.</span>
+        <textarea class="inp" id="inp-carousel" rows="5" placeholder="Например: темпер шоколада — нагрев и охлаждение до нужных температур. Молочный 45/27/32°C, тёмный 50/28/31°C. Зачем: глянец и ломкость. Ошибки: перегрев, влага, спешка..."></textarea>
+
+        <label class="form-label">Формат карусели</label>
+        <div class="chips-row" id="cr-carousel-style">
+          <span class="chip active" data-val="мифы и факты">Мифы и факты</span>
+          <span class="chip" data-val="пошаговый гайд">Пошаговый гайд</span>
+          <span class="chip" data-val="топ советов эксперта">Топ советов</span>
+          <span class="chip" data-val="история и кейс">История/кейс</span>
+          <span class="chip" data-val="ошибки и как их избежать">Ошибки</span>
+        </div>
+
+        <label class="form-label" style="margin-top:4px">Комбинация обложки</label>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem" id="cover-combo-grid">
+          <div class="cover-combo active" data-combo="light" onclick="selectCombo('light',this)" style="border:1.5px solid var(--gold);border-radius:8px;overflow:hidden;cursor:pointer">
+            <div style="height:52px;background:#F0E9DC;display:flex;align-items:center;justify-content:center;padding:8px">
+              <div style="text-align:center">
+                <div style="font-family:'Bebas Neue',cursive,sans-serif;font-size:13px;color:#0C0B09;line-height:1">ТЕМПЕР</div>
+                <div style="width:20px;height:1.5px;background:#D4581A;margin:3px auto 0;border-radius:1px"></div>
+              </div>
+            </div>
+            <div style="background:#1C1915;padding:5px 8px;font-size:10px;color:rgba(240,233,220,.6);font-family:var(--font-sans);text-align:center">Светлая</div>
+          </div>
+          <div class="cover-combo" data-combo="dark" onclick="selectCombo('dark',this)" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer">
+            <div style="height:52px;background:#0C0B09;display:flex;align-items:center;justify-content:center;padding:8px">
+              <div style="text-align:center">
+                <div style="font-family:'Bebas Neue',cursive,sans-serif;font-size:13px;color:#F0E9DC;line-height:1">ТЕМПЕР</div>
+                <div style="width:20px;height:1.5px;background:#D4581A;margin:3px auto 0;border-radius:1px"></div>
+              </div>
+            </div>
+            <div style="background:#1C1915;padding:5px 8px;font-size:10px;color:rgba(240,233,220,.6);font-family:var(--font-sans);text-align:center">Контрастная</div>
+          </div>
+          <div class="cover-combo" data-combo="fire" onclick="selectCombo('fire',this)" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer">
+            <div style="height:52px;background:#D4581A;display:flex;align-items:center;justify-content:center;padding:8px">
+              <div style="text-align:center">
+                <div style="font-family:'Bebas Neue',cursive,sans-serif;font-size:13px;color:#FAF5EE;line-height:1">ТЕМПЕР</div>
+                <div style="width:20px;height:1.5px;background:#FAF5EE;opacity:.5;margin:3px auto 0;border-radius:1px"></div>
+              </div>
+            </div>
+            <div style="background:#1C1915;padding:5px 8px;font-size:10px;color:rgba(240,233,220,.6);font-family:var(--font-sans);text-align:center">Огонь</div>
+          </div>
+        </div>
+
+        <button class="gen-btn" id="btn-carousel" onclick="generateCarousel()">
+          <span class="spinner" id="sp-carousel"></span>Создать карусель
+        </button>
+
+        <!-- VISUAL CAROUSEL EDITOR -->
+        <div id="carousel-visual" style="display:none;margin-top:1.5rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+            <div style="font-size:13px;font-weight:500;color:var(--dark)">Редактор слайдов</div>
+            <button class="copy-btn" onclick="downloadAllSlides()" style="background:var(--dark);color:var(--cream);border-color:var(--dark);padding:7px 16px;font-weight:500">⬇ Скачать все PNG</button>
+          </div>
+
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem" id="slide-nav"></div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start">
+            <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem">
+              <div style="font-size:11px;font-weight:500;color:var(--muted);letter-spacing:0.06em;margin-bottom:12px">РЕДАКТИРОВАТЬ</div>
+              <label class="form-label">Бейдж категории</label>
+              <div class="chips-row" id="cr-badge" style="margin-bottom:10px">
+                <span class="chip active" data-val="ФАКТ">ФАКТ</span>
+                <span class="chip" data-val="ОШИБКА">ОШИБКА</span>
+                <span class="chip" data-val="ПРАВИЛО">ПРАВИЛО</span>
+                <span class="chip" data-val="МИФ">МИФ</span>
+                <span class="chip" data-val="ТЕХНИКА">ТЕХНИКА</span>
+                <span class="chip" data-val="">—</span>
+              </div>
+              <label class="form-label">Заголовок</label>
+              <textarea id="edit-title" class="inp" rows="2" oninput="updatePreview()" style="margin-bottom:10px"></textarea>
+              <label class="form-label">Текст / цитата</label>
+              <textarea id="edit-body" class="inp" rows="4" oninput="updatePreview()"></textarea>
+              <label class="form-label" style="margin-top:4px">Тип слайда</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <span class="chip active" data-slide-type="cover" onclick="setSlideType('cover',this)">Обложка</span>
+                <span class="chip" data-slide-type="content" onclick="setSlideType('content',this)">Контент</span>
+                <span class="chip" data-slide-type="quote" onclick="setSlideType('quote',this)">Цитата</span>
+                <span class="chip" data-slide-type="cta" onclick="setSlideType('cta',this)">Призыв</span>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;font-weight:500;color:var(--muted);letter-spacing:0.06em;margin-bottom:12px">ПРЕВЬЮ</div>
+              <div style="width:100%;aspect-ratio:1;border-radius:12px;overflow:hidden">
+                <canvas id="slide-canvas" style="width:100%;height:100%;display:block"></canvas>
+              </div>
+              <button class="gen-btn" style="width:100%;justify-content:center;margin-top:10px" onclick="downloadCurrentSlide()">
+                ⬇ Скачать слайд
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- POSTS -->
+    <div id="page-posts" class="page">
+      <div class="page-title">Посты</div>
+      <div class="page-desc">Идеи и готовые тексты для ленты</div>
+
+      <div class="tools-grid">
+        <div class="tool-card active" onclick="selectTool('posts','ideas',this)">
+          <span class="tool-icon">🗂</span>
+          <div class="tool-name">Идеи постов</div>
+          <div class="tool-desc">10 идей с форматами и углами</div>
+        </div>
+        <div class="tool-card" onclick="selectTool('posts','write',this)">
+          <span class="tool-icon">✍️</span>
+          <div class="tool-name">Написать пост</div>
+          <div class="tool-desc">Готовый текст по твоей теме</div>
+        </div>
+      </div>
+
+      <div id="form-posts-ideas" class="form-block active">
+        <label class="form-label">Уточни фокус <span style="color:var(--muted);font-weight:400">(необязательно)</span></label>
+        <textarea class="inp" id="inp-posts-ideas" rows="3" placeholder="Например: больше личных историй, посты про техники, посты для привлечения клиентов на торты..."></textarea>
+        <button class="gen-btn" id="btn-posts-ideas" onclick="generate('posts-ideas')">
+          <span class="spinner" id="sp-posts-ideas"></span>Сгенерировать идеи
+        </button>
+        <div class="result-wrap" id="res-posts-ideas">
+          <div class="result-head"><span class="result-label">РЕЗУЛЬТАТ</span><button class="copy-btn" onclick="copyRes('posts-ideas')">📋 Копировать</button></div>
+          <div class="result-body" id="body-posts-ideas"></div>
+        </div>
+      </div>
+
+      <div id="form-posts-write" class="form-block">
+        <label class="form-label">Тема или идея поста</label>
+        <textarea class="inp" id="inp-posts-write" rows="4" placeholder="Например: как я облажался с тортом за день до свадьбы... или: почему я против пищевых красителей в декоре..."></textarea>
+        <label class="form-label">Тон</label>
+        <div class="chips-row" id="cr-posts-tone">
+          <span class="chip active" data-val="живой и личный, как разговор с другом">Живой/личный</span>
+          <span class="chip" data-val="экспертный и уверенный">Экспертный</span>
+          <span class="chip" data-val="с тонким юмором и самоиронией">С юмором</span>
+          <span class="chip" data-val="вдохновляющий и мотивирующий">Вдохновляющий</span>
+        </div>
+        <button class="gen-btn" id="btn-posts-write" onclick="generate('posts-write')">
+          <span class="spinner" id="sp-posts-write"></span>Написать пост
+        </button>
+        <div class="result-wrap" id="res-posts-write">
+          <div class="result-head"><span class="result-label">РЕЗУЛЬТАТ</span><button class="copy-btn" onclick="copyRes('posts-write')">📋 Копировать</button></div>
+          <div class="result-body" id="body-posts-write"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STORIES -->
+    <div id="page-stories" class="page">
+      <div class="page-title">Сторис</div>
+      <div class="page-desc">Цепочки, вовлечение и продающие серии</div>
+
+      <div class="tools-grid">
+        <div class="tool-card active" onclick="selectTool('stories','chain',this)">
+          <span class="tool-icon">🔗</span>
+          <div class="tool-name">Цепочка сторис</div>
+          <div class="tool-desc">Серия 5–7 связанных слайдов</div>
+        </div>
+        <div class="tool-card" onclick="selectTool('stories','engage',this)">
+          <span class="tool-icon">💬</span>
+          <div class="tool-name">Вовлечение</div>
+          <div class="tool-desc">Опросы, вопросы, игры</div>
+        </div>
+        <div class="tool-card" onclick="selectTool('stories','promo',this)">
+          <span class="tool-icon">🏷</span>
+          <div class="tool-name">Продажи</div>
+          <div class="tool-desc">Торт на заказ или курс</div>
+        </div>
+      </div>
+
+      <div id="form-stories-chain" class="form-block active">
+        <label class="form-label">Тема цепочки</label>
+        <textarea class="inp" id="inp-stories-chain" rows="3" placeholder="Например: торт от эскиза до финала, мой день на кухне, как выбрать кондитера..."></textarea>
+        <button class="gen-btn" id="btn-stories-chain" onclick="generate('stories-chain')">
+          <span class="spinner" id="sp-stories-chain"></span>Создать цепочку
+        </button>
+        <div class="result-wrap" id="res-stories-chain">
+          <div class="result-head"><span class="result-label">ЦЕПОЧКА СТОРИС</span><button class="copy-btn" onclick="copyRes('stories-chain')">📋 Копировать</button></div>
+          <div class="result-body" id="body-stories-chain"></div>
+        </div>
+      </div>
+
+      <div id="form-stories-engage" class="form-block">
+        <label class="form-label">Тема для интерактива</label>
+        <textarea class="inp" id="inp-stories-engage" rows="3" placeholder="Например: вкусовые сочетания, угадай ингредиент, какой торт хотят мои подписчики..."></textarea>
+        <button class="gen-btn" id="btn-stories-engage" onclick="generate('stories-engage')">
+          <span class="spinner" id="sp-stories-engage"></span>Сгенерировать
+        </button>
+        <div class="result-wrap" id="res-stories-engage">
+          <div class="result-head"><span class="result-label">РЕЗУЛЬТАТ</span><button class="copy-btn" onclick="copyRes('stories-engage')">📋 Копировать</button></div>
+          <div class="result-body" id="body-stories-engage"></div>
+        </div>
+      </div>
+
+      <div id="form-stories-promo" class="form-block">
+        <label class="form-label">Что продаём?</label>
+        <div class="chips-row" id="cr-stories-promo">
+          <span class="chip active" data-val="торт на заказ">Торт на заказ</span>
+          <span class="chip" data-val="онлайн-курс по кондитерскому делу">Онлайн-курс</span>
+          <span class="chip" data-val="живой мастер-класс">Мастер-класс</span>
+        </div>
+        <label class="form-label" style="margin-top:4px">Детали <span style="color:var(--muted);font-weight:400">(необязательно)</span></label>
+        <textarea class="inp" id="inp-stories-promo" rows="3" placeholder="Например: осталось 2 места на июнь, торт от 18.000₽, курс стартует 1 июля..."></textarea>
+        <button class="gen-btn" id="btn-stories-promo" onclick="generate('stories-promo')">
+          <span class="spinner" id="sp-stories-promo"></span>Написать сторис
+        </button>
+        <div class="result-wrap" id="res-stories-promo">
+          <div class="result-head"><span class="result-label">ПРОДАЮЩИЕ СТОРИС</span><button class="copy-btn" onclick="copyRes('stories-promo')">📋 Копировать</button></div>
+          <div class="result-body" id="body-stories-promo"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYSIS PAGE -->
+    <div id="page-analysis" class="page">
+      <div class="page-title">Анализ контента</div>
+      <div class="page-desc">Вноси цифры и детали — получай разбор и конкретные корректировки</div>
+
+      <div class="tools-grid">
+        <div class="tool-card active" onclick="selectTool('analysis','reel',this)">
+          <span class="tool-icon">🔍</span>
+          <div class="tool-name">Разбор рилс</div>
+          <div class="tool-desc">Почему зашло или нет + что поменять</div>
+        </div>
+        <div class="tool-card" onclick="selectTool('analysis','compare',this)">
+          <span class="tool-icon">⚖️</span>
+          <div class="tool-name">Сравнить два рилс</div>
+          <div class="tool-desc">Найти что сработало лучше и почему</div>
+        </div>
+        <div class="tool-card" onclick="selectTool('analysis','improve',this)">
+          <span class="tool-icon">🚀</span>
+          <div class="tool-name">Улучшить сценарий</div>
+          <div class="tool-desc">Переписать провальный рилс</div>
+        </div>
+      </div>
+
+      <div id="form-analysis-reel" class="form-block active">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+          <div><label class="form-label">Просмотры</label><input class="inp" type="number" id="inp-views" placeholder="1200" style="min-height:0;resize:none"></div>
+          <div><label class="form-label">Лайки</label><input class="inp" type="number" id="inp-likes" placeholder="45" style="min-height:0;resize:none"></div>
+          <div><label class="form-label">Сохранения</label><input class="inp" type="number" id="inp-saves" placeholder="12" style="min-height:0;resize:none"></div>
+          <div><label class="form-label">Комментарии</label><input class="inp" type="number" id="inp-comments" placeholder="3" style="min-height:0;resize:none"></div>
+        </div>
+        <label class="form-label">Хук — первые слова видео</label>
+        <textarea class="inp" id="inp-hook-text" rows="2" placeholder="Например: «Покажу как делаю велюр за 2 минуты» или «Вы не поверите что я добавляю в крем»..."></textarea>
+        <label class="form-label">Тема и формат видео</label>
+        <textarea class="inp" id="inp-content-desc" rows="3" placeholder="Что показывал, как снял, музыка, монтаж, длина, где стоял... Чем подробнее — тем точнее анализ."></textarea>
+        <label class="form-label">Твоя оценка <span style="color:var(--muted);font-weight:400">(необязательно)</span></label>
+        <textarea class="inp" id="inp-self-assess" rows="2" placeholder="Думал зайдёт лучше? Хук слабый? Визуал не очень?..."></textarea>
+        <label class="form-label">Аудитория сейчас</label>
+        <div class="chips-row" id="cr-audience-size">
+          <span class="chip active" data-val="до 1000 подписчиков">до 1К</span>
+          <span class="chip" data-val="1000-5000 подписчиков">1–5К</span>
+          <span class="chip" data-val="5000-20000 подписчиков">5–20К</span>
+          <span class="chip" data-val="больше 20000 подписчиков">20К+</span>
+        </div>
+        <button class="gen-btn" id="btn-analysis-reel" onclick="generate('analysis-reel')">
+          <span class="spinner" id="sp-analysis-reel"></span>Разобрать рилс
+        </button>
+        <div class="result-wrap" id="res-analysis-reel">
+          <div class="result-head"><span class="result-label">РАЗБОР</span><button class="copy-btn" onclick="copyRes('analysis-reel')">📋 Копировать</button></div>
+          <div class="result-body" id="body-analysis-reel"></div>
+        </div>
+      </div>
+
+      <div id="form-analysis-compare" class="form-block">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:1.25rem">Заполни данные по двум рилс — найду что сработало и почему.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+          <div style="background:var(--surface);border-radius:10px;padding:1rem">
+            <div style="font-size:12px;font-weight:500;color:var(--gold);margin-bottom:12px;letter-spacing:0.05em">РИЛС А — ЗАЛЕТЕЛ</div>
+            <label class="form-label">Просмотры / Лайки / Сохранения</label>
+            <input class="inp" id="inp-a-stats" placeholder="3400 / 120 / 45" style="min-height:0;resize:none">
+            <label class="form-label">Хук</label>
+            <textarea class="inp" id="inp-a-hook" rows="2" placeholder="Первая фраза..."></textarea>
+            <label class="form-label">Тема и формат</label>
+            <textarea class="inp" id="inp-a-desc" rows="3" placeholder="О чём, как снято..."></textarea>
+          </div>
+          <div style="background:var(--surface);border-radius:10px;padding:1rem">
+            <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:12px;letter-spacing:0.05em">РИЛС Б — НЕ ЗАШЁЛ</div>
+            <label class="form-label">Просмотры / Лайки / Сохранения</label>
+            <input class="inp" id="inp-b-stats" placeholder="800 / 30 / 5" style="min-height:0;resize:none">
+            <label class="form-label">Хук</label>
+            <textarea class="inp" id="inp-b-hook" rows="2" placeholder="Первая фраза..."></textarea>
+            <label class="form-label">Тема и формат</label>
+            <textarea class="inp" id="inp-b-desc" rows="3" placeholder="О чём, как снято..."></textarea>
+          </div>
+        </div>
+        <button class="gen-btn" style="margin-top:1rem" id="btn-analysis-compare" onclick="generate('analysis-compare')">
+          <span class="spinner" id="sp-analysis-compare"></span>Сравнить и найти паттерн
+        </button>
+        <div class="result-wrap" id="res-analysis-compare">
+          <div class="result-head"><span class="result-label">СРАВНЕНИЕ</span><button class="copy-btn" onclick="copyRes('analysis-compare')">📋 Копировать</button></div>
+          <div class="result-body" id="body-analysis-compare"></div>
+        </div>
+      </div>
+
+      <div id="form-analysis-improve" class="form-block">
+        <label class="form-label">Вставь сценарий или описание рилс который не зашёл</label>
+        <textarea class="inp" id="inp-improve-script" rows="5" placeholder="Текст сценария, хук, или опиши что говорил и показывал..."></textarea>
+        <label class="form-label">Цифры <span style="color:var(--muted);font-weight:400">(если есть)</span></label>
+        <input class="inp" id="inp-improve-stats" placeholder="Просмотры / лайки / сохранения — например: 500 / 15 / 2" style="min-height:0;resize:none">
+        <label class="form-label">Цель этого видео</label>
+        <textarea class="inp" id="inp-improve-goal" rows="2" placeholder="Показать технику, привлечь клиентов, набрать подписчиков..."></textarea>
+        <button class="gen-btn" id="btn-analysis-improve" onclick="generate('analysis-improve')">
+          <span class="spinner" id="sp-analysis-improve"></span>Переписать и улучшить
+        </button>
+        <div class="result-wrap" id="res-analysis-improve">
+          <div class="result-head"><span class="result-label">УЛУЧШЕННАЯ ВЕРСИЯ</span><button class="copy-btn" onclick="copyRes('analysis-improve')">📋 Копировать</button></div>
+          <div class="result-body" id="body-analysis-improve"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const PERSONA = `Ты — контент-менеджер шеф-кондитера Павла Ивановского (Instagram: p_ivanovskiy, Москва).
+
+Павел — шеф-кондитер и шеф-повар. Авторские торты-скульптуры и десерты ресторанного уровня. Торты на заказ. Московские шефы и ресторанные сети высоко оценивают его работы. Также эксперт в управлении кухнями и оптимизации процессов.
+
+Цель блога: аудитория → курсы по кондитерскому делу + продажа тортов на заказ.
+
+Стиль: живой, личный, экспертный. Как шеф, который говорит с тобой на кухне. Уверенный, прямой, без воды.
+
+Аудитория: кондитеры-любители, начинающие профи, клиенты на заказные торты.
+
+Весь контент — на русском языке. Конкретика, без клише.`;
+
+function switchPage(p, btn) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-' + p).classList.add('active');
+  btn.classList.add('active');
+}
+
+function selectTool(page, tool, card) {
+  card.parentElement.querySelectorAll('.tool-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  document.querySelectorAll(`#page-${page} .form-block`).forEach(f => f.classList.remove('active'));
+  document.getElementById(`form-${page}-${tool}`).classList.add('active');
+}
+
+function chip(id) {
+  const el = document.getElementById(id);
+  if (!el) return '';
+  const a = el.querySelector('.chip.active');
+  return a ? a.dataset.val : '';
+}
+
+function prompt(id) {
+  const m = {
+    'reels-ideas': () => {
+      const t = document.getElementById('inp-reels-ideas').value.trim();
+      const f = chip('cr-reels-format');
+      return `Придумай 10 идей для рилс в формате "${f}".${t?' Тема: '+t:''}\n\nКаждая идея: заголовок + 1-2 строки описания + что снимать. Нумеруй. Без вступлений.`;
+    },
+    'reels-hook': () => {
+      const t = document.getElementById('inp-reels-hook').value.trim();
+      return `5 хуков (первые 3 сек рилс) для видео: "${t}".\n\n1) Вопрос 2) Провокация 3) Неожиданный факт 4) Личная история 5) Обещание результата.\n\nКаждый — 1-2 предложения максимум.`;
+    },
+    'reels-script': () => {
+      const t = document.getElementById('inp-reels-script').value.trim();
+      const l = chip('cr-reels-len');
+      return `Сценарий рилс (${l}): "${t}".\n\n🎬 ХУК (0-3 сек): [слова] | [картинка]\n📹 ТЕЛО: [слова] | [картинка]\n🎯 ФИНАЛ: [призыв]\n\nКонкретно, ёмко.`;
+    },
+    'reels-caption': () => {
+      const t = document.getElementById('inp-reels-caption').value.trim();
+      return `Подпись к рилс: "${t}".\n\n1-2 строки зацепки → текст → призыв к действию.\nПотом отдельно: 15-20 хэштегов (русские + английские).\n\n100-180 слов. Живо.`;
+    },
+    'carousel': () => {
+      const info = document.getElementById('inp-carousel').value.trim();
+      const s = chip('cr-carousel-style');
+      return `Создай карусель Instagram в стиле "огонь-наставник" (${s}) по теме: "${info}".\n\nВерни ТОЛЬКО валидный JSON массив без markdown:\n[{"title":"ЗАГОЛОВОК CAPS","body":"текст","type":"cover","badge":""},{"title":"...","body":"...","type":"content","badge":"ФАКТ"},...]\n\nПравила:\n- type: cover (обложка), content (контент), quote (личная цитата от первого лица), cta (призыв)\n- badge для content: ФАКТ / ОШИБКА / ПРАВИЛО / МИФ / ТЕХНИКА (или пусто)\n- quote: body = цитата от первого лица в кавычках, title пустой\n- 6-8 слайдов. Один quote-слайд с личной историей. Последний cta.\n- Заголовки короткие, ёмкие. Текст 2-3 строки. Стиль: уверенный, прямой, без воды.`;
+    },
+    'posts-ideas': () => {
+      const f = document.getElementById('inp-posts-ideas').value.trim();
+      return `10 идей для постов Instagram для Павла.${f?' Фокус: '+f:''}\n\nФорматы: личные истории, экспертные разборы, закулисье, кейсы, провокации, ответы на вопросы.\n\nКаждая: тема + угол подачи. Нумеруй.`;
+    },
+    'posts-write': () => {
+      const t = document.getElementById('inp-posts-write').value.trim();
+      const tone = chip('cr-posts-tone');
+      return `Пост Instagram (тон: ${tone}): "${t}".\n\n• 2-3 строки зацепки (читается в превью)\n• Основной текст\n• Финал: вывод или вопрос\n\n150-250 слов. Без лишних смайлов. От первого лица.`;
+    },
+    'stories-chain': () => {
+      const t = document.getElementById('inp-stories-chain').value.trim();
+      return `Цепочка 6 сторис: "${t}".\n\n🔲 СТОРИС [N]\nЗАГОЛОВОК: [короткий]\nТЕКСТ: [2-3 строки]\nИНТЕРАКТИВ: [для 2-3 сторис]\n\nКаждая цепляет за следующую.`;
+    },
+    'stories-engage': () => {
+      const t = document.getElementById('inp-stories-engage').value.trim();
+      return `5 интерактивных сторис: "${t}".\n\nФорматы: вопрос-стикер, опрос, угадайка, шкала, реакция-эмодзи.\n\nДля каждой: текст + тип интерактива + варианты ответов.`;
+    },
+    'stories-promo': () => {
+      const w = chip('cr-stories-promo');
+      const info = document.getElementById('inp-stories-promo').value.trim();
+      return `4 продающие сторис: ${w}.${info?' Детали: '+info:''}\n\nПодход: ценность → доверие → предложение → действие.\nБез агрессии. Живо. В конце — чёткий призыв.`;
+    },
+    'analysis-reel': () => {
+      const views = document.getElementById('inp-views').value.trim();
+      const likes = document.getElementById('inp-likes').value.trim();
+      const saves = document.getElementById('inp-saves').value.trim();
+      const comments = document.getElementById('inp-comments').value.trim();
+      const hook = document.getElementById('inp-hook-text').value.trim();
+      const desc = document.getElementById('inp-content-desc').value.trim();
+      const self = document.getElementById('inp-self-assess').value.trim();
+      const aud = chip('cr-audience-size');
+      return `Разбери рилс шеф-кондитера Павла (${aud}).\n\nСТАТИСТИКА:\nПросмотры: ${views||'не указано'} | Лайки: ${likes||'не указано'} | Сохранения: ${saves||'не указано'} | Комменты: ${comments||'не указано'}\n\nХУК: ${hook||'не описан'}\n\nКОНТЕНТ: ${desc||'не описан'}\n${self?'\nСАМООЦЕНКА: '+self:''}\n\nДай разбор по структуре:\n1. ОЦЕНКА — зашло или нет, почему (по цифрам)\n2. ЧТО СРАБОТАЛО — конкретно\n3. ЧТО НЕ СРАБОТАЛО — конкретно\n4. ХУКИ — оцени текущий и дай 2 сильнее\n5. ВИЗУАЛ И ПОДАЧА — что поменять\n6. СЛЕДУЮЩИЙ ШАГ — одна конкретная правка которая даст рост\n\nБез воды. Конкретно, как тренер.`;
+    },
+    'analysis-compare': () => {
+      const aStats = document.getElementById('inp-a-stats').value.trim();
+      const aHook = document.getElementById('inp-a-hook').value.trim();
+      const aDesc = document.getElementById('inp-a-desc').value.trim();
+      const bStats = document.getElementById('inp-b-stats').value.trim();
+      const bHook = document.getElementById('inp-b-hook').value.trim();
+      const bDesc = document.getElementById('inp-b-desc').value.trim();
+      return `Сравни два рилс шеф-кондитера Павла и найди паттерны.\n\nРИЛС А (залетел):\nЦифры: ${aStats}\nХук: ${aHook}\nКонтент: ${aDesc}\n\nРИЛС Б (не зашёл):\nЦифры: ${bStats}\nХук: ${bHook}\nКонтент: ${bDesc}\n\nАнализ:\n1. ГЛАВНОЕ ОТЛИЧИЕ — почему А сработал\n2. ПАТТЕРН ХУКА — что в А зацепило\n3. ПАТТЕРН КОНТЕНТА — формат/тема/подача\n4. ПРАВИЛО — одно конкретное правило для следующих рилс\n5. ПРИМЕНЕНИЕ — как использовать это в 3 следующих видео\n\nКонкретно, без воды.`;
+    },
+    'analysis-improve': () => {
+      const script = document.getElementById('inp-improve-script').value.trim();
+      const stats = document.getElementById('inp-improve-stats').value.trim();
+      const goal = document.getElementById('inp-improve-goal').value.trim();
+      return `Улучши рилс шеф-кондитера Павла который не зашёл.\n\nОРИГИНАЛ:\n${script}\n${stats?'\nЦИФРЫ: '+stats:''}\n${goal?'\nЦЕЛЬ: '+goal:''}\n\nДай:\n1. ДИАГНОЗ — 2-3 причины почему не зашло\n2. НОВЫЙ ХУК — 3 варианта сильнее\n3. ПЕРЕПИСАННЫЙ СЦЕНАРИЙ — полная новая версия с таймингами\n4. ЧТО ИЗМЕНИТЬ В СЪЁМКЕ — монтаж, подача, визуал\n\nПиши конкретно, переписывай полностью.`;
+    }
+  };
+  return m[id] ? m[id]() : '';
+}
+
+async function generate(id) {
+  const p = prompt(id);
+  if (!p) return;
+
+  const btn = document.getElementById('btn-' + id);
+  const sp = document.getElementById('sp-' + id);
+  const res = document.getElementById('res-' + id);
+  const body = document.getElementById('body-' + id);
+
+  btn.disabled = true;
+  sp.style.display = 'inline-block';
+  res.style.display = 'block';
+  body.innerHTML = '<div class="dots-loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span>Генерирую...</span></div>';
+
+  try {
+    const r = await fetch('/.netlify/functions/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1200,
+        system: PERSONA,
+        messages: [{ role: 'user', content: p }]
+      })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(typeof data.error === 'string' ? data.error : data.error.message);
+    body.textContent = data.content?.map(b => b.text || '').join('') || 'Пустой ответ';
+  } catch(e) {
+    body.textContent = '⚠️ Ошибка: ' + e.message;
+  }
+
+  btn.disabled = false;
+  sp.style.display = 'none';
+}
+
+function copyRes(id) {
+  const body = document.getElementById('body-' + id);
+  if (!body) return;
+  navigator.clipboard.writeText(body.textContent).then(() => {
+    const btn = document.querySelector(`#res-${id} .copy-btn`);
+    if (btn) { btn.textContent = '✓ Скопировано'; setTimeout(() => btn.textContent = '📋 Копировать', 2000); }
+  });
+}
+
+
+// ========== DARK FIRE CAROUSEL ENGINE ==========
+let slides = [];
+let currentSlide = 0;
+let currentCombo = 'light';
+
+function selectCombo(combo, el) {
+  currentCombo = combo;
+  document.querySelectorAll('.cover-combo').forEach(c => {
+    c.style.border = '1px solid var(--border)';
+  });
+  el.style.border = '1.5px solid var(--gold)';
+  if (slides.length > 0) updatePreview();
+}
+
+// DARK FIRE color schemes
+const COMBOS = {
+  light:    { cover: '#F0E9DC', coverText: '#0C0B09', coverAccent: '#D4581A', coverSub: 'rgba(12,11,9,0.4)', content: '#161310', contentBorder: 'rgba(240,233,220,0.06)', cta: '#D4581A', ctaText: '#FAF5EE' },
+  dark:     { cover: '#0C0B09', coverText: '#F0E9DC', coverAccent: '#D4581A', coverSub: 'rgba(240,233,220,0.35)', content: '#161310', contentBorder: 'rgba(240,233,220,0.06)', cta: '#D4581A', ctaText: '#FAF5EE' },
+  fire:     { cover: '#D4581A', coverText: '#FAF5EE', coverAccent: '#FAF5EE', coverSub: 'rgba(250,245,238,0.55)', content: '#161310', contentBorder: 'rgba(240,233,220,0.06)', cta: '#0C0B09', ctaText: '#F0E9DC' }
+};
+
+async function generateCarousel() {
+  const p = prompt('carousel');
+  if (!p) return;
+  const btn = document.getElementById('btn-carousel');
+  const sp = document.getElementById('sp-carousel');
+  btn.disabled = true;
+  sp.style.display = 'inline-block';
+  try {
+    const r = await fetch('/.netlify/functions/claude', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1800,
+        system: `Ты — контент-менеджер шеф-кондитера Павла Ивановского (p_ivanovskiy). Стиль: уверенный огонь-наставник, не препод. Отвечай ТОЛЬКО валидным JSON без markdown.`,
+        messages: [{role:'user', content: p}]
+      })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(typeof data.error === 'string' ? data.error : data.error.message);
+    let text = data.content?.map(b => b.text||'').join('') || '';
+    text = text.replace(/```json|```/g,'').trim();
+    slides = JSON.parse(text);
+    currentSlide = 0;
+    renderSlideNav();
+    loadSlideToEditor(0);
+    document.getElementById('carousel-visual').style.display = 'block';
+    document.getElementById('carousel-visual').scrollIntoView({behavior:'smooth'});
+  } catch(e) { alert('Ошибка: ' + e.message); }
+  btn.disabled = false;
+  sp.style.display = 'none';
+}
+
+function renderSlideNav() {
+  const nav = document.getElementById('slide-nav');
+  nav.innerHTML = '';
+  slides.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.textContent = `Слайд ${i+1}`;
+    b.className = 'chip' + (i === currentSlide ? ' active' : '');
+    b.onclick = () => { currentSlide = i; loadSlideToEditor(i); renderSlideNav(); };
+    nav.appendChild(b);
+  });
+}
+
+function loadSlideToEditor(i) {
+  const s = slides[i];
+  document.getElementById('edit-title').value = s.title || '';
+  document.getElementById('edit-body').value = s.body || '';
+  // badge
+  const badge = s.badge || '';
+  document.querySelectorAll('#cr-badge .chip').forEach(c => c.classList.toggle('active', c.dataset.val === badge));
+  // type
+  document.querySelectorAll('[data-slide-type]').forEach(c => c.classList.toggle('active', c.dataset.slideType === (s.type||'content')));
+  drawSlide();
+}
+
+function setSlideType(type, el) {
+  document.querySelectorAll('[data-slide-type]').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  slides[currentSlide].type = type;
+  drawSlide();
+}
+
+function updatePreview() {
+  if (!slides[currentSlide]) return;
+  slides[currentSlide].title = document.getElementById('edit-title').value;
+  slides[currentSlide].body = document.getElementById('edit-body').value;
+  const activeBadge = document.querySelector('#cr-badge .chip.active');
+  slides[currentSlide].badge = activeBadge ? activeBadge.dataset.val : '';
+  drawSlide();
+}
+
+function drawSlide() {
+  const s = slides[currentSlide];
+  if (!s) return;
+  const canvas = document.getElementById('slide-canvas');
+  const SZ = 1080;
+  canvas.width = SZ; canvas.height = SZ;
+  const ctx = canvas.getContext('2d');
+  const C = COMBOS[currentCombo];
+  const type = s.type || 'content';
+  const title = s.title || '';
+  const body = s.body || '';
+  const badge = s.badge || '';
+  const num = currentSlide + 1;
+  const total = slides.length;
+
+  // BG
+  if (type === 'cover') ctx.fillStyle = C.cover;
+  else if (type === 'cta') ctx.fillStyle = C.cta;
+  else if (type === 'quote') ctx.fillStyle = '#1C1915';
+  else ctx.fillStyle = C.content;
+  ctx.fillRect(0, 0, SZ, SZ);
+
+  // subtle outer border
+  ctx.strokeStyle = type === 'cover' ? 'rgba(0,0,0,0.06)' : 'rgba(240,233,220,0.05)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, SZ-1, SZ-1);
+
+  const PAD = 80;
+  const textColor = type === 'cover' ? C.coverText : (type === 'cta' ? C.ctaText : '#F0E9DC');
+
+  // SLIDE NUMBER
+  ctx.font = '300 28px DM Sans, Arial, sans-serif';
+  ctx.fillStyle = type === 'cover' ? (C.coverText === '#0C0B09' ? 'rgba(12,11,9,0.22)' : 'rgba(240,233,220,0.22)') : 'rgba(240,233,220,0.2)';
+  ctx.textAlign = 'left';
+  ctx.fillText(num + ' / ' + total, PAD, PAD + 10);
+
+  // HANDLE bottom left
+  ctx.font = '300 24px DM Sans, Arial, sans-serif';
+  ctx.fillStyle = type === 'cover' ? (C.coverText === '#0C0B09' ? 'rgba(12,11,9,0.2)' : 'rgba(240,233,220,0.18)') : 'rgba(240,233,220,0.18)';
+  ctx.textAlign = 'left';
+  ctx.fillText('@p_ivanovskiy', PAD, SZ - PAD + 10);
+
+  if (type === 'cover') {
+    // accent line
+    ctx.fillStyle = C.coverAccent;
+    ctx.fillRect(PAD, PAD + 55, 60, 3);
+    ctx.fillRect(PAD + 68, PAD + 55, 18, 3);
+
+    // TITLE big Bebas-style (uppercase bold)
+    ctx.fillStyle = C.coverText;
+    ctx.font = 'bold 110px Arial Black, Arial, sans-serif';
+    ctx.textAlign = 'left';
+    wrapTextDF(ctx, title.toUpperCase(), PAD, PAD + 130, SZ - PAD*2, 110, 1.05);
+
+    // subtitle
+    if (body) {
+      ctx.font = '300 34px DM Sans, Arial, sans-serif';
+      ctx.fillStyle = C.coverSub;
+      wrapTextDF(ctx, body, PAD, PAD + 130 + getTextHeight(ctx, title.toUpperCase(), SZ-PAD*2, 110) + 40, SZ - PAD*2, 34, 1.5);
+    }
+
+    // sketch circle decoration
+    ctx.save();
+    ctx.strokeStyle = C.coverText === '#0C0B09' ? 'rgba(12,11,9,0.08)' : 'rgba(240,233,220,0.08)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([8, 12]);
+    ctx.beginPath(); ctx.arc(SZ - 120, 120, 70, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(SZ - 120, 120, 38, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+
+  } else if (type === 'quote') {
+    // quote mark
+    ctx.font = 'bold 120px Georgia, serif';
+    ctx.fillStyle = 'rgba(212,88,26,0.2)';
+    ctx.textAlign = 'left';
+    ctx.fillText('"', PAD, PAD + 120);
+
+    // quote text italic
+    ctx.font = 'italic 300 44px DM Sans, Arial, sans-serif';
+    ctx.fillStyle = 'rgba(240,233,220,0.75)';
+    wrapTextDF(ctx, body || title, PAD, PAD + 160, SZ - PAD*2, 44, 1.6);
+
+    // orange line
+    ctx.fillStyle = '#D4581A';
+    ctx.fillRect(PAD, PAD + 80, 50, 2);
+
+  } else if (type === 'cta') {
+    // CTA
+    ctx.fillStyle = C.ctaText;
+    ctx.font = 'bold 96px Arial Black, Arial, sans-serif';
+    ctx.textAlign = 'left';
+    wrapTextDF(ctx, title.toUpperCase(), PAD, PAD + 120, SZ - PAD*2, 96, 1.05);
+
+    if (body) {
+      ctx.font = '300 34px DM Sans, Arial, sans-serif';
+      ctx.fillStyle = type === 'cta' && currentCombo === 'fire' ? 'rgba(240,233,220,0.55)' : 'rgba(250,245,238,0.55)';
+      wrapTextDF(ctx, body, PAD, PAD + 120 + getTextHeight(ctx, title.toUpperCase(), SZ-PAD*2, 96) + 40, SZ - PAD*2, 34, 1.5);
+    }
+
+    // accent line under
+    const lineY = PAD + 55;
+    ctx.fillStyle = C.ctaText === '#FAF5EE' ? 'rgba(250,245,238,0.3)' : 'rgba(212,88,26,0.5)';
+    ctx.fillRect(PAD, lineY, 40, 2);
+
+  } else {
+    // CONTENT slide
+    let yPos = PAD + 55;
+
+    // badge pill
+    if (badge) {
+      const isSolid = badge === 'ОШИБКА' || badge === 'МИФ';
+      const bPad = 16;
+      ctx.font = 'bold 26px Arial, sans-serif';
+      const bw = ctx.measureText(badge).width + bPad * 2;
+      const bh = 44;
+      if (isSolid) {
+        ctx.fillStyle = 'rgba(212,88,26,0.15)';
+        roundRect(ctx, PAD, yPos, bw, bh, 6);
+        ctx.strokeStyle = 'rgba(212,88,26,0.4)';
+        ctx.lineWidth = 1;
+        roundRectStroke(ctx, PAD, yPos, bw, bh, 6);
+        ctx.fillStyle = '#D4581A';
+      } else {
+        ctx.fillStyle = '#D4581A';
+        roundRect(ctx, PAD, yPos, bw, bh, 6);
+        ctx.fillStyle = '#FAF5EE';
+      }
+      ctx.font = 'bold 24px Arial, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(badge, PAD + bPad, yPos + bh - 11);
+      yPos += bh + 30;
+    } else {
+      // orange line instead of badge
+      ctx.fillStyle = '#D4581A';
+      ctx.fillRect(PAD, yPos, 50, 2);
+      ctx.fillRect(PAD + 58, yPos, 16, 2);
+      yPos += 30;
+    }
+
+    // TITLE
+    ctx.font = 'bold 80px Arial Black, Arial, sans-serif';
+    ctx.fillStyle = '#F0E9DC';
+    ctx.textAlign = 'left';
+    wrapTextDF(ctx, title.toUpperCase(), PAD, yPos + 80, SZ - PAD*2, 80, 1.05);
+    yPos += 80 + getTextHeight(ctx, title.toUpperCase(), SZ-PAD*2, 80) + 40;
+
+    // BODY
+    if (body) {
+      ctx.font = '300 36px DM Sans, Arial, sans-serif';
+      ctx.fillStyle = 'rgba(240,233,220,0.5)';
+      wrapTextDF(ctx, body, PAD, yPos, SZ - PAD*2, 36, 1.6);
+    }
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y);
+  ctx.arcTo(x+w, y, x+w, y+r, r); ctx.lineTo(x+w, y+h-r);
+  ctx.arcTo(x+w, y+h, x+w-r, y+h, r); ctx.lineTo(x+r, y+h);
+  ctx.arcTo(x, y+h, x, y+h-r, r); ctx.lineTo(x, y+r);
+  ctx.arcTo(x, y, x+r, y, r); ctx.closePath(); ctx.fill();
+}
+function roundRectStroke(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y);
+  ctx.arcTo(x+w, y, x+w, y+r, r); ctx.lineTo(x+w, y+h-r);
+  ctx.arcTo(x+w, y+h, x+w-r, y+h, r); ctx.lineTo(x+r, y+h);
+  ctx.arcTo(x, y+h, x, y+h-r, r); ctx.lineTo(x, y+r);
+  ctx.arcTo(x, y, x+r, y, r); ctx.closePath(); ctx.stroke();
+}
+
+function wrapTextDF(ctx, text, x, y, maxW, size, lh) {
+  const lineH = size * lh;
+  const words = text.split(' ');
+  let line = '', cy = y;
+  for (let i = 0; i < words.length; i++) {
+    const test = line + words[i] + ' ';
+    if (ctx.measureText(test).width > maxW && i > 0) {
+      ctx.fillText(line.trim(), x, cy);
+      line = words[i] + ' ';
+      cy += lineH;
+    } else { line = test; }
+  }
+  ctx.fillText(line.trim(), x, cy);
+}
+
+function getTextHeight(ctx, text, maxW, size) {
+  const words = text.split(' ');
+  let line = '', lines = 1;
+  for (let i = 0; i < words.length; i++) {
+    const test = line + words[i] + ' ';
+    if (ctx.measureText(test).width > maxW && i > 0) { line = words[i] + ' '; lines++; } else { line = test; }
+  }
+  return lines * size * 1.05;
+}
+
+function downloadCurrentSlide() {
+  const c = document.getElementById('slide-canvas');
+  const a = document.createElement('a');
+  a.download = `p_ivanovskiy_slide_${currentSlide+1}.png`;
+  a.href = c.toDataURL('image/png'); a.click();
+}
+
+async function downloadAllSlides() {
+  const saved = currentSlide;
+  for (let i = 0; i < slides.length; i++) {
+    currentSlide = i; loadSlideToEditor(i);
+    await new Promise(r => setTimeout(r, 120));
+    const c = document.getElementById('slide-canvas');
+    const a = document.createElement('a');
+    a.download = `p_ivanovskiy_slide_${i+1}.png`;
+    a.href = c.toDataURL('image/png'); a.click();
+    await new Promise(r => setTimeout(r, 250));
+  }
+  currentSlide = saved; loadSlideToEditor(saved);
+}
+// ========== END DARK FIRE CAROUSEL ==========
+
+// Wire badge chips
+document.querySelectorAll('#cr-badge .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('#cr-badge .chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    if (slides[currentSlide]) {
+      slides[currentSlide].badge = c.dataset.val;
+      drawSlide();
+    }
+  });
+});
+
+document.querySelectorAll('.chips-row').forEach(row => {
+  row.querySelectorAll('.chip').forEach(c => {
+    c.addEventListener('click', () => {
+      row.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+    });
+  });
+});
+</script>
+</body>
+</html>
