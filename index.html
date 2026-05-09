@@ -874,17 +874,27 @@ function drawSlide() {
     ctx.fillRect(PAD, PAD + 55, 60, 3);
     ctx.fillRect(PAD + 68, PAD + 55, 18, 3);
 
-    // TITLE big Bebas-style (uppercase bold)
+    // TITLE — dynamic size
+    const titleUp = title.toUpperCase();
+    let titleSize = 110;
+    if (titleUp.length > 15) titleSize = 90;
+    if (titleUp.length > 22) titleSize = 72;
+    if (titleUp.length > 30) titleSize = 58;
     ctx.fillStyle = C.coverText;
-    ctx.font = 'bold 110px Arial Black, Arial, sans-serif';
+    ctx.font = `bold ${titleSize}px Arial Black, Arial, sans-serif`;
     ctx.textAlign = 'left';
-    wrapTextDF(ctx, title.toUpperCase(), PAD, PAD + 130, SZ - PAD*2, 110, 1.05);
+    const titleStartY = PAD + 130;
+    const titleH = getTextHeight(ctx, titleUp, SZ - PAD*2, titleSize);
+    wrapTextDF(ctx, titleUp, PAD, titleStartY, SZ - PAD*2, titleSize, 1.05);
 
-    // subtitle
+    // subtitle — always below title with safe gap
     if (body) {
-      ctx.font = '300 34px DM Sans, Arial, sans-serif';
-      ctx.fillStyle = C.coverSub;
-      wrapTextDF(ctx, body, PAD, PAD + 130 + getTextHeight(ctx, title.toUpperCase(), SZ-PAD*2, 110) + 40, SZ - PAD*2, 34, 1.5);
+      const subY = titleStartY + titleH + 50;
+      if (subY < SZ - 160) {
+        ctx.font = '300 34px DM Sans, Arial, sans-serif';
+        ctx.fillStyle = C.coverSub;
+        wrapTextDF(ctx, body, PAD, subY, SZ - PAD*2, 34, 1.5);
+      }
     }
 
     // sketch circle decoration
@@ -916,15 +926,24 @@ function drawSlide() {
 
   } else if (type === 'cta') {
     // CTA
+    const ctaTitleUp = title.toUpperCase();
+    let ctaSize = 96;
+    if (ctaTitleUp.length > 20) ctaSize = 78;
+    if (ctaTitleUp.length > 30) ctaSize = 64;
     ctx.fillStyle = C.ctaText;
-    ctx.font = 'bold 96px Arial Black, Arial, sans-serif';
+    ctx.font = `bold ${ctaSize}px Arial Black, Arial, sans-serif`;
     ctx.textAlign = 'left';
-    wrapTextDF(ctx, title.toUpperCase(), PAD, PAD + 120, SZ - PAD*2, 96, 1.05);
+    const ctaStartY = PAD + 120;
+    const ctaTitleH = getTextHeight(ctx, ctaTitleUp, SZ-PAD*2, ctaSize);
+    wrapTextDF(ctx, ctaTitleUp, PAD, ctaStartY, SZ - PAD*2, ctaSize, 1.05);
 
     if (body) {
-      ctx.font = '300 34px DM Sans, Arial, sans-serif';
-      ctx.fillStyle = type === 'cta' && currentCombo === 'fire' ? 'rgba(240,233,220,0.55)' : 'rgba(250,245,238,0.55)';
-      wrapTextDF(ctx, body, PAD, PAD + 120 + getTextHeight(ctx, title.toUpperCase(), SZ-PAD*2, 96) + 40, SZ - PAD*2, 34, 1.5);
+      const ctaBodyY = ctaStartY + ctaTitleH + 50;
+      if (ctaBodyY < SZ - 160) {
+        ctx.font = '300 34px DM Sans, Arial, sans-serif';
+        ctx.fillStyle = type === 'cta' && currentCombo === 'fire' ? 'rgba(240,233,220,0.55)' : 'rgba(250,245,238,0.55)';
+        wrapTextDF(ctx, body, PAD, ctaBodyY, SZ - PAD*2, 34, 1.5);
+      }
     }
 
     // accent line under
@@ -967,12 +986,16 @@ function drawSlide() {
       yPos += 30;
     }
 
-    // TITLE
-    ctx.font = 'bold 80px Arial Black, Arial, sans-serif';
+    // TITLE — dynamic size
+    const cTitleUp = title.toUpperCase();
+    let cTitleSize = 80;
+    if (cTitleUp.length > 25) cTitleSize = 64;
+    if (cTitleUp.length > 35) cTitleSize = 52;
+    ctx.font = `bold ${cTitleSize}px Arial Black, Arial, sans-serif`;
     ctx.fillStyle = '#F0E9DC';
     ctx.textAlign = 'left';
-    wrapTextDF(ctx, title.toUpperCase(), PAD, yPos + 80, SZ - PAD*2, 80, 1.05);
-    yPos += 80 + getTextHeight(ctx, title.toUpperCase(), SZ-PAD*2, 80) + 40;
+    wrapTextDF(ctx, cTitleUp, PAD, yPos + cTitleSize, SZ - PAD*2, cTitleSize, 1.05);
+    yPos += cTitleSize + getTextHeight(ctx, cTitleUp, SZ-PAD*2, cTitleSize) + 40;
 
     // BODY
     if (body) {
