@@ -1663,41 +1663,96 @@ function drawSVGSketchOnCanvas(ctx, svgString, SZ, PAD, type) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Check image cache
   const cacheKey = svgString.slice(0, 100);
+
+  // Use cached image if available
   if (svgImageCache[cacheKey]) {
-    const img = svgImageCache[cacheKey];
-    renderSVGImage(ctx, img, vizY, vizH, vizW, PAD, SZ);
+    renderSVGImage(ctx, svgImageCache[cacheKey], vizY, vizH, vizW, PAD, SZ);
     return;
   }
 
-  // Load and cache
-  const blob = new Blob([svgString], {type:'image/svg+xml'});
-  const url = URL.createObjectURL(blob);
-  const img = new Image();
-  img.onload = () => {
-    svgImageCache[cacheKey] = img;
-    URL.revokeObjectURL(url);
-    // Redraw entire slide now that image is ready
-    drawSlide();
-  };
-  img.onerror = (e) => {
-    console.error('SVG image load error:', e);
-    URL.revokeObjectURL(url);
-  };
-  img.src = url;
+  // Convert SVG to data URL (works without blob URL / CSP issues)
+  try {
+    const encoded = btoa(unescape(encodeURIComponent(svgString)));
+    const dataURL = 'data:image/svg+xml;base64,' + encoded;
+    const img = new Image();
+    img.onload = () => {
+      svgImageCache[cacheKey] = img;
+      drawSlide();
+    };
+    img.onerror = (e) => {
+      console.error('SVG load error, trying inline render');
+      renderSVGInline(ctx, svgString, vizY, vizH, vizW, PAD, SZ);
+    };
+    img.src = dataURL;
+  } catch(e) {
+    console.error('SVG encode error:', e);
+    renderSVGInline(ctx, svgString, vizY, vizH, vizW, PAD, SZ);
+  }
 }
 
 function renderSVGImage(ctx, img, vizY, vizH, vizW, PAD, SZ) {
-  const scale = Math.min(vizW / (img.width||400), vizH / (img.height||300)) * 0.92;
-  const dw = (img.width||400) * scale;
-  const dh = (img.height||300) * scale;
+  const scale = Math.min(vizW / (img.naturalWidth||400), vizH / (img.naturalHeight||300)) * 0.92;
+  const dw = (img.naturalWidth||400) * scale;
+  const dh = (img.naturalHeight||300) * scale;
   const dx = PAD + (vizW - dw) / 2;
   const dy = vizY + (vizH - dh) / 2;
   ctx.save();
-  ctx.globalAlpha = 0.9;
+  ctx.globalAlpha = 0.88;
   ctx.drawImage(img, dx, dy, dw, dh);
   ctx.restore();
+}
+
+function renderSVGInline(ctx, svgString, vizY, vizH, vizW, PAD, SZ) {
+  // Fallback: parse SVG and draw paths manually via DOM
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgString, 'image/svg+xml');
+    const svgEl = doc.querySelector('svg');
+    if (!svgEl) return;
+
+    // Draw SVG into a temporary canvas via foreignObject approach
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = 400; tmpCanvas.height = 300;
+    const tmpCtx = tmpCanvas.getContext('2d');
+
+    // Get all path/line/circle elements and draw them
+    const elements = svgEl.querySelectorAll('path, line, circle, rect, ellipse, polyline, polygon');
+    elements.forEach(el => {
+      const stroke = el.getAttribute('stroke') || 'rgba(212,88,26,0.6)';
+      const sw = parseFloat(el.getAttribute('stroke-width') || '1.5');
+      tmpCtx.strokeStyle = stroke;
+      tmpCtx.lineWidth = sw;
+      tmpCtx.fillStyle = 'none';
+
+      if (el.tagName === 'line') {
+        tmpCtx.beginPath();
+        tmpCtx.moveTo(parseFloat(el.getAttribute('x1')||0), parseFloat(el.getAttribute('y1')||0));
+        tmpCtx.lineTo(parseFloat(el.getAttribute('x2')||0), parseFloat(el.getAttribute('y2')||0));
+        tmpCtx.stroke();
+      } else if (el.tagName === 'circle') {
+        tmpCtx.beginPath();
+        tmpCtx.arc(parseFloat(el.getAttribute('cx')||0), parseFloat(el.getAttribute('cy')||0),
+          parseFloat(el.getAttribute('r')||0), 0, Math.PI*2);
+        tmpCtx.stroke();
+      } else if (el.tagName === 'path') {
+        const p = new Path2D(el.getAttribute('d') || '');
+        tmpCtx.stroke(p);
+      }
+    });
+
+    // Draw tmpCanvas onto main canvas
+    const scale = Math.min(vizW / 400, vizH / 300) * 0.92;
+    const dw = 400 * scale, dh = 300 * scale;
+    const dx = PAD + (vizW - dw) / 2;
+    const dy = vizY + (vizH - dh) / 2;
+    ctx.save();
+    ctx.globalAlpha = 0.88;
+    ctx.drawImage(tmpCanvas, dx, dy, dw, dh);
+    ctx.restore();
+  } catch(e) {
+    console.error('SVG inline render error:', e);
+  }
 }
 
 function drawSketchAccents(ctx, s, SZ, PAD, type) {
