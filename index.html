@@ -349,10 +349,23 @@ textarea.inp:focus { border-color: var(--gold); background: white; }
                 <span class="chip" data-slide-type="cta" onclick="setSlideType('cta',this)">Призыв</span>
               </div>
               <label class="form-label">Стиль оформления</label>
-              <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
                 <span class="chip" data-slide-style="clean" onclick="setSlideStyle('clean',this)">Чистый</span>
                 <span class="chip active" data-slide-style="infographic" onclick="setSlideStyle('infographic',this)">Инфографика</span>
                 <span class="chip" data-slide-style="sketch" onclick="setSlideStyle('sketch',this)">Скетч</span>
+              </div>
+
+              <div id="custom-visual-block" style="background:var(--surface);border-radius:8px;padding:12px;border:1px solid var(--border)">
+                <label class="form-label" style="margin-bottom:6px">✏️ Свой скетч или инфографика</label>
+                <textarea class="inp" id="custom-visual-prompt" rows="2" placeholder="Опиши что нарисовать: «торт в разрезе с малиновым муссом» или «шкала температур 45-27-32°C»..." style="margin-bottom:8px;font-size:13px"></textarea>
+                <div style="display:flex;gap:6px">
+                  <button class="gen-btn" style="flex:1;justify-content:center;font-size:12px;padding:8px 10px" onclick="regenSketch()">
+                    <span class="spinner" id="sp-regen-sketch" style="display:none"></span>🎨 Нарисовать скетч
+                  </button>
+                  <button class="gen-btn" style="flex:1;justify-content:center;font-size:12px;padding:8px 10px;background:var(--brown)" onclick="regenViz()">
+                    <span class="spinner" id="sp-regen-viz" style="display:none"></span>📊 Сделать инфографику
+                  </button>
+                </div>
               </div>
             </div>
             <div>
@@ -2252,6 +2265,131 @@ function roundRectFill(ctx, x, y, w, h, r) {
   ctx.closePath(); ctx.fill();
 }
 // ========== END INFOGRAPHIC ==========
+
+
+// ── CUSTOM SKETCH / VIZ REGENERATION ──
+
+async function regenSketch() {
+  const customPrompt = document.getElementById('custom-visual-prompt').value.trim();
+  const subject = customPrompt || buildSketchSubject(slides[currentSlide]);
+  const btn = document.querySelector('[onclick="regenSketch()"]');
+  const sp = document.getElementById('sp-regen-sketch');
+  btn.disabled = true; sp.style.display = 'inline-block';
+
+  // Force sketch style
+  document.querySelectorAll('[data-slide-style]').forEach(c => c.classList.remove('active'));
+  document.querySelector('[data-slide-style="sketch"]').classList.add('active');
+  slides[currentSlide].style = 'sketch';
+
+  const svg = await generateSVGSketch(subject + '__custom__' + currentSlide);
+  if (svg) {
+    // Bypass cache for custom
+    slides[currentSlide]._svgSketch = svg;
+    drawSlide();
+    setTimeout(() => drawSlide(), 200);
+  } else {
+    alert('Не удалось сгенерировать скетч, попробуй ещё раз');
+  }
+  btn.disabled = false; sp.style.display = 'none';
+}
+
+async function regenViz() {
+  const customPrompt = document.getElementById('custom-visual-prompt').value.trim();
+  if (!customPrompt) {
+    alert('Опиши что нарисовать — например: «шкала температур 45-27-32°C» или «шаги: растопить, охладить, темперировать»');
+    return;
+  }
+
+  const btn = document.querySelector('[onclick="regenViz()"]');
+  const sp = document.getElementById('sp-regen-viz');
+  btn.disabled = true; sp.style.display = 'inline-block';
+
+  // Force infographic style
+  document.querySelectorAll('[data-slide-style]').forEach(c => c.classList.remove('active'));
+  document.querySelector('[data-slide-style="infographic"]').classList.add('active');
+  slides[currentSlide].style = 'infographic';
+  slides[currentSlide]._svgSketch = null;
+
+  try {
+    const r = await fetch('/.netlify/functions/claude', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 600,
+        system: 'Отвечай ТОЛЬКО валидным JSON объектом без markdown.',
+        messages: [{role:'user', content: `Преобразуй описание в JSON для инфографики: "${customPrompt}"
+
+Выбери ОДИН подходящий тип и верни JSON:
+- {"type":"temperature","values":[45,27,32],"labels":["нагрев","охлаждение","рабочая"],"unit":"°C"}
+- {"type":"steps","items":["шаг 1","шаг 2","шаг 3"]}
+- {"type":"compare","left":{"label":"A","value":80},"right":{"label":"B","value":60},"unit":"%"}
+- {"type":"ratio","segments":[{"label":"сахар","value":80,"color":"orange"},{"label":"вода","value":20,"color":"gray"}]}
+- {"type":"timeline","items":[{"time":"0 мин","label":"старт"},{"time":"5 мин","label":"готово"}]}
+- {"type":"checklist","items":["пункт 1","пункт 2","пункт 3"]}
+- {"type":"scale","min":0,"max":100,"value":75,"label":"описание","unit":"%"}
+
+Только JSON, никакого текста вокруг.`}]
+      })
+    });
+    const data = await r.json();
+    let text = data.content?.map(b => b.text||'').join('') || '';
+    text = text.replace(/```json|```/g,'').trim();
+    const viz = JSON.parse(text);
+    slides[currentSlide].viz = viz;
+    drawSlide();
+  } catch(e) {
+    alert('Ошибка: ' + e.message);
+  }
+  btn.disabled = false; sp.style.display = 'none';
+}
+
+// Override generateSVGSketch to handle custom subjects
+const _origGenSVG = generateSVGSketch;
+async function generateSVGSketch(subject) {
+  // Strip custom suffix for cache
+  const cacheKey = subject.replace(/__custom__\d+$/, '');
+  if (svgSketchCache[cacheKey] && !subject.includes('__custom__')) {
+    return svgSketchCache[cacheKey];
+  }
+  const cleanSubject = cacheKey;
+  const svgPrompt = `Нарисуй детальный SVG-скетч в стиле карандашного рисунка: "${cleanSubject}".
+
+Требования:
+- viewBox="0 0 400 300"
+- Только линии и штриховка, fill="none" везде
+- stroke="#D4581A" для основных контуров (stroke-width="2.5")
+- stroke="rgba(212,88,26,0.35)" для штриховки теней (stroke-width="0.8")
+- stroke="rgba(212,88,26,0.15)" для фоновых деталей
+- Стиль: уверенный архитектурный скетч с детальной штриховкой
+- Объект занимает 75% пространства, центрирован
+- Добавь параллельную штриховку в тёмных зонах
+- НЕ добавляй текст, подписи, рамки, фон
+- Верни ТОЛЬКО SVG начиная с <svg и заканчивая </svg>`;
+
+  try {
+    const r = await fetch('/.netlify/functions/claude', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 2500,
+        system: 'Ты — иллюстратор SVG. Рисуешь детальные скетчи. Только SVG-код в ответе.',
+        messages: [{role:'user', content: svgPrompt}]
+      })
+    });
+    const data = await r.json();
+    let svg = data.content?.map(b => b.text||'').join('') || '';
+    svg = svg.replace(/```svg|```xml|```/g,'').trim();
+    const s = svg.indexOf('<svg'), e = svg.lastIndexOf('</svg>') + 6;
+    if (s !== -1 && e > s) {
+      const clean = svg.slice(s, e);
+      svgSketchCache[cacheKey] = clean;
+      return clean;
+    }
+  } catch(e) { console.error('SVG error:', e); }
+  return null;
+}
 
 // ========== END DARK FIRE CAROUSEL ==========
 
