@@ -335,11 +335,17 @@ textarea.inp:focus { border-color: var(--gold); background: white; }
               <label class="form-label">Текст / цитата</label>
               <textarea id="edit-body" class="inp" rows="4" oninput="updatePreview()"></textarea>
               <label class="form-label" style="margin-top:4px">Тип слайда</label>
-              <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
                 <span class="chip active" data-slide-type="cover" onclick="setSlideType('cover',this)">Обложка</span>
                 <span class="chip" data-slide-type="content" onclick="setSlideType('content',this)">Контент</span>
                 <span class="chip" data-slide-type="quote" onclick="setSlideType('quote',this)">Цитата</span>
                 <span class="chip" data-slide-type="cta" onclick="setSlideType('cta',this)">Призыв</span>
+              </div>
+              <label class="form-label">Стиль оформления</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <span class="chip active" data-slide-style="clean" onclick="setSlideStyle('clean',this)">Чистый</span>
+                <span class="chip" data-slide-style="infographic" onclick="setSlideStyle('infographic',this)">Инфографика</span>
+                <span class="chip" data-slide-style="sketch" onclick="setSlideStyle('sketch',this)">Скетч</span>
               </div>
             </div>
             <div>
@@ -807,6 +813,9 @@ function loadSlideToEditor(i) {
   document.querySelectorAll('#cr-badge .chip').forEach(c => c.classList.toggle('active', c.dataset.val === badge));
   // type
   document.querySelectorAll('[data-slide-type]').forEach(c => c.classList.toggle('active', c.dataset.slideType === (s.type||'content')));
+  // style
+  const slideStyle = s.style || 'clean';
+  document.querySelectorAll('[data-slide-style]').forEach(c => c.classList.toggle('active', c.dataset.slideStyle === slideStyle));
   drawSlide();
 }
 
@@ -814,6 +823,13 @@ function setSlideType(type, el) {
   document.querySelectorAll('[data-slide-type]').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   slides[currentSlide].type = type;
+  drawSlide();
+}
+
+function setSlideStyle(style, el) {
+  document.querySelectorAll('[data-slide-style]').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  slides[currentSlide].style = style;
   drawSlide();
 }
 
@@ -861,6 +877,9 @@ function drawSlide() {
   ctx.fillStyle = type === 'cover' ? (C.coverText === '#0C0B09' ? 'rgba(12,11,9,0.22)' : 'rgba(240,233,220,0.22)') : 'rgba(240,233,220,0.2)';
   ctx.textAlign = 'left';
   ctx.fillText(num + ' / ' + total, PAD, PAD + 10);
+
+  // INFOGRAPHIC / SKETCH overlay (before text)
+  drawSlideStyle(ctx, s, SZ, PAD, C, currentCombo);
 
   // HANDLE bottom left
   ctx.font = '300 24px DM Sans, Arial, sans-serif';
@@ -1068,6 +1087,314 @@ async function downloadAllSlides() {
   }
   currentSlide = saved; loadSlideToEditor(saved);
 }
+
+// ========== INFOGRAPHIC RENDERERS ==========
+
+function drawSlideStyle(ctx, s, SZ, PAD, C, currentCombo) {
+  const style = s.style || 'clean';
+  const type = s.type || 'content';
+  const infotype = s.infotype || '';
+
+  if (style === 'clean') return; // default - no extra elements
+
+  if (style === 'infographic') {
+    drawInfographic(ctx, s, SZ, PAD, C, infotype);
+  } else if (style === 'sketch') {
+    drawSketchAccents(ctx, s, SZ, PAD, type);
+  }
+}
+
+function drawInfographic(ctx, s, SZ, PAD, C, infotype) {
+  const type = s.type || 'content';
+  const textColor = type === 'cover' ? 'rgba(12,11,9,0.08)' : 'rgba(240,233,220,0.07)';
+
+  // Auto-detect infographic type from title/body
+  const combined = ((s.title || '') + ' ' + (s.body || '')).toLowerCase();
+
+  if (infotype === 'temperature' || combined.includes('°') || combined.includes('температур') || combined.includes('градус')) {
+    drawTemperatureScale(ctx, SZ, PAD, type);
+  } else if (infotype === 'steps' || combined.includes('шаг') || combined.includes('этап') || combined.includes('процесс')) {
+    drawStepsFlow(ctx, SZ, PAD, type);
+  } else if (infotype === 'compare' || combined.includes('vs') || combined.includes('сравн') || combined.includes('против')) {
+    drawCompareViz(ctx, SZ, PAD, type);
+  } else if (infotype === 'timeline' || combined.includes('миnut') || combined.includes('мин') || combined.includes('час') || combined.includes('время')) {
+    drawTimeline(ctx, SZ, PAD, type);
+  } else if (infotype === 'ratio' || combined.includes('%') || combined.includes('процент') || combined.includes('состав')) {
+    drawRatioCircle(ctx, SZ, PAD, type);
+  } else {
+    drawGenericAccent(ctx, SZ, PAD, type);
+  }
+}
+
+function drawTemperatureScale(ctx, SZ, PAD, type) {
+  const isLight = type === 'cover';
+  const alpha = isLight ? 0.12 : 0.1;
+  const col = isLight ? `rgba(12,11,9,${alpha})` : `rgba(240,233,220,${alpha})`;
+  const orange = `rgba(212,88,26,${alpha * 1.5})`;
+
+  // Thermometer bar on right side
+  const barX = SZ - PAD - 60;
+  const barTop = PAD + 120;
+  const barBot = SZ - PAD - 120;
+  const barH = barBot - barTop;
+  const barW = 28;
+
+  // Background bar
+  ctx.fillStyle = col;
+  roundRectFill(ctx, barX, barTop, barW, barH, 14);
+
+  // Fill level (70%)
+  ctx.fillStyle = orange;
+  roundRectFill(ctx, barX, barTop + barH * 0.3, barW, barH * 0.7, 14);
+
+  // Bulb at bottom
+  ctx.fillStyle = orange;
+  ctx.beginPath();
+  ctx.arc(barX + barW/2, barBot + 20, 22, 0, Math.PI*2);
+  ctx.fill();
+
+  // Tick marks
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = barTop + (barH / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(barX - 10, y);
+    ctx.lineTo(barX, y);
+    ctx.stroke();
+  }
+
+  // Large background number
+  ctx.font = `bold 200px Arial Black, Arial, sans-serif`;
+  ctx.fillStyle = isLight ? 'rgba(12,11,9,0.04)' : 'rgba(240,233,220,0.04)';
+  ctx.textAlign = 'right';
+  ctx.fillText('°', SZ - PAD + 30, SZ - PAD - 60);
+  ctx.textAlign = 'left';
+}
+
+function drawStepsFlow(ctx, SZ, PAD, type) {
+  const isLight = type === 'cover';
+  const col = isLight ? 'rgba(12,11,9,0.09)' : 'rgba(240,233,220,0.08)';
+  const orange = 'rgba(212,88,26,0.15)';
+
+  // 3 circles connected by arrows in bottom right
+  const startX = SZ - PAD - 200;
+  const startY = SZ - PAD - 120;
+  const r = 30;
+  const gap = 80;
+
+  for (let i = 0; i < 3; i++) {
+    const cx = startX + i * gap;
+    const cy = startY;
+
+    // Circle
+    ctx.fillStyle = i === 1 ? orange : col;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.fill();
+
+    // Arrow between circles
+    if (i < 2) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + r + 5, cy);
+      ctx.lineTo(cx + gap - r - 5, cy);
+      ctx.stroke();
+      // arrowhead
+      ctx.beginPath();
+      ctx.moveTo(cx + gap - r - 5, cy);
+      ctx.lineTo(cx + gap - r - 15, cy - 7);
+      ctx.moveTo(cx + gap - r - 5, cy);
+      ctx.lineTo(cx + gap - r - 15, cy + 7);
+      ctx.stroke();
+    }
+
+    // Number in circle
+    ctx.fillStyle = isLight ? 'rgba(12,11,9,0.25)' : 'rgba(240,233,220,0.25)';
+    ctx.font = `bold 28px Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(i + 1, cx, cy + 10);
+    ctx.textAlign = 'left';
+  }
+}
+
+function drawCompareViz(ctx, SZ, PAD, type) {
+  const isLight = type === 'cover';
+  const col = isLight ? 'rgba(12,11,9,0.08)' : 'rgba(240,233,220,0.07)';
+  const orange = 'rgba(212,88,26,0.12)';
+
+  // Two columns with bars
+  const baseY = SZ - PAD - 80;
+  const colW = 90;
+  const gap = 50;
+  const startX = SZ - PAD - colW*2 - gap - 20;
+
+  const bars = [
+    { h: 180, col: orange },
+    { h: 100, col: col }
+  ];
+
+  bars.forEach((bar, i) => {
+    const x = startX + i * (colW + gap);
+    ctx.fillStyle = bar.col;
+    roundRectFill(ctx, x, baseY - bar.h, colW, bar.h, 8);
+  });
+
+  // VS text
+  ctx.fillStyle = isLight ? 'rgba(12,11,9,0.12)' : 'rgba(240,233,220,0.1)';
+  ctx.font = `bold 36px Arial Black, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('VS', startX + colW + gap/2, baseY - 80);
+  ctx.textAlign = 'left';
+}
+
+function drawTimeline(ctx, SZ, PAD, type) {
+  const isLight = type === 'cover';
+  const col = isLight ? 'rgba(12,11,9,0.09)' : 'rgba(240,233,220,0.08)';
+  const orange = 'rgba(212,88,26,0.18)';
+
+  // Horizontal timeline at bottom
+  const y = SZ - PAD - 80;
+  const startX = PAD + 40;
+  const endX = SZ - PAD - 40;
+
+  // Line
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(startX, y);
+  ctx.lineTo(endX, y);
+  ctx.stroke();
+
+  // Points
+  const points = [0.15, 0.4, 0.7, 0.9];
+  points.forEach((pos, i) => {
+    const px = startX + (endX - startX) * pos;
+    ctx.fillStyle = i === 2 ? orange : col;
+    ctx.beginPath();
+    ctx.arc(px, y, i === 2 ? 16 : 10, 0, Math.PI*2);
+    ctx.fill();
+
+    // Small tick above
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(px, y - 25);
+    ctx.lineTo(px, y - 10);
+    ctx.stroke();
+  });
+}
+
+function drawRatioCircle(ctx, SZ, PAD, type) {
+  const isLight = type === 'cover';
+  const col = isLight ? 'rgba(12,11,9,0.08)' : 'rgba(240,233,220,0.07)';
+  const orange = 'rgba(212,88,26,0.2)';
+
+  // Donut chart in bottom right
+  const cx = SZ - PAD - 100;
+  const cy = SZ - PAD - 100;
+  const r = 80;
+  const inner = 50;
+
+  // Background arc
+  ctx.strokeStyle = col;
+  ctx.lineWidth = r - inner;
+  ctx.beginPath();
+  ctx.arc(cx, cy, (r + inner) / 2, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Orange segment (80%)
+  ctx.strokeStyle = orange;
+  ctx.lineWidth = r - inner;
+  ctx.beginPath();
+  ctx.arc(cx, cy, (r + inner) / 2, -Math.PI/2, -Math.PI/2 + Math.PI * 2 * 0.8);
+  ctx.stroke();
+
+  // Center text
+  ctx.fillStyle = isLight ? 'rgba(12,11,9,0.15)' : 'rgba(240,233,220,0.15)';
+  ctx.font = `bold 32px Arial Black, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('80%', cx, cy + 12);
+  ctx.textAlign = 'left';
+}
+
+function drawGenericAccent(ctx, SZ, PAD, type) {
+  const isLight = type === 'cover';
+  const col = isLight ? 'rgba(12,11,9,0.06)' : 'rgba(240,233,220,0.05)';
+
+  // Large background letter as texture
+  ctx.font = `bold 400px Arial Black, Arial, sans-serif`;
+  ctx.fillStyle = col;
+  ctx.textAlign = 'right';
+  ctx.fillText('P', SZ - 20, SZ - 60);
+  ctx.textAlign = 'left';
+}
+
+function drawSketchAccents(ctx, s, SZ, PAD, type) {
+  const isLight = type === 'cover';
+  const col = isLight ? 'rgba(12,11,9,0.07)' : 'rgba(240,233,220,0.06)';
+
+  ctx.save();
+  ctx.strokeStyle = col;
+  ctx.fillStyle = col;
+
+  // Organic blob bottom right
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([4, 8]);
+  ctx.beginPath();
+  ctx.moveTo(SZ - PAD - 20, SZ - 200);
+  ctx.bezierCurveTo(SZ - 40, SZ - 280, SZ - 160, SZ - 320, SZ - 200, SZ - 200);
+  ctx.bezierCurveTo(SZ - 240, SZ - 100, SZ - PAD - 60, SZ - 120, SZ - PAD - 20, SZ - 200);
+  ctx.stroke();
+
+  // Inner blob
+  ctx.setLineDash([2, 6]);
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(SZ - PAD - 40, SZ - 210);
+  ctx.bezierCurveTo(SZ - 80, SZ - 260, SZ - 160, SZ - 290, SZ - 190, SZ - 210);
+  ctx.bezierCurveTo(SZ - 220, SZ - 140, SZ - PAD - 70, SZ - 150, SZ - PAD - 40, SZ - 210);
+  ctx.stroke();
+
+  // Dashed circle top right
+  ctx.setLineDash([6, 10]);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(SZ - 100, 100, 65, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.setLineDash([3, 7]);
+  ctx.beginPath();
+  ctx.arc(SZ - 100, 100, 38, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Cross hair lines
+  ctx.setLineDash([2, 8]);
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(SZ - 100, 35); ctx.lineTo(SZ - 100, 165);
+  ctx.moveTo(SZ - 165, 100); ctx.lineTo(SZ - 35, 100);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function roundRectFill(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y);
+  ctx.arcTo(x+w, y, x+w, y+r, r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h);
+  ctx.arcTo(x, y+h, x, y+h-r, r);
+  ctx.lineTo(x, y+r);
+  ctx.arcTo(x, y, x+r, y, r);
+  ctx.closePath(); ctx.fill();
+}
+// ========== END INFOGRAPHIC ==========
+
 // ========== END DARK FIRE CAROUSEL ==========
 
 // Wire badge chips
