@@ -584,34 +584,46 @@ textarea.inp:focus { border-color: var(--gold); background: white; }
 
     <!-- LIBRARY PAGE -->
     <div id="page-library" class="page">
-      <div class="page-title">Библиотека промптов</div>
-      <div class="page-desc">Готовые промпты — нажми "Использовать" чтобы вставить в нужное поле</div>
+      <div class="page-title">Блокнот</div>
+      <div class="page-desc">Сохраняй промпты и заметки — всё хранится локально в браузере</div>
 
-      <!-- Settings -->
-      <div class="form-block active" style="margin-bottom:1.25rem">
-        <label class="form-label">Ссылка на Google Sheets CSV</label>
-        <span class="form-hint">Файл → Опубликовать в интернете → CSV → скопируй ссылку</span>
-        <div style="display:flex;gap:8px;align-items:flex-start">
-          <input class="inp" id="sheets-url" type="text" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" style="min-height:0;resize:none;flex:1;margin-bottom:0">
-          <button class="gen-btn" style="padding:10px 16px;white-space:nowrap" onclick="loadLibrary()">
-            <span class="spinner" id="sp-library" style="display:none"></span>Загрузить
-          </button>
+      <!-- Add / Edit form -->
+      <div class="form-block active" id="lib-form-block" style="margin-bottom:1.25rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <div style="font-size:13px;font-weight:500;color:var(--dark)" id="lib-form-title">Новая запись</div>
+          <button onclick="libCancelEdit()" id="lib-cancel-btn" style="display:none;background:none;border:none;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit">✕ Отмена</button>
         </div>
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap" id="lib-filter-row"></div>
-      </div>
-
-      <!-- Search -->
-      <div style="position:relative;margin-bottom:1.25rem">
-        <input class="inp" id="lib-search" type="text" placeholder="Поиск по названию или тегам..." oninput="filterLibrary()" style="min-height:0;resize:none;margin-bottom:0;padding-left:40px">
-        <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.4;font-size:16px">🔍</span>
-      </div>
-
-      <!-- Prompts grid -->
-      <div id="lib-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
-        <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--muted);font-size:14px">
-          Добавь ссылку на Google Sheets выше и нажми "Загрузить"
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <label class="form-label">Название</label>
+            <input class="inp" id="lib-inp-name" type="text" placeholder="Хук для рилс про технику..." style="min-height:0;resize:none;margin-bottom:0">
+          </div>
+          <div>
+            <label class="form-label">Категория</label>
+            <input class="inp" id="lib-inp-cat" type="text" placeholder="рилс / карусель / посты..." style="min-height:0;resize:none;margin-bottom:0" list="lib-cat-list">
+            <datalist id="lib-cat-list"></datalist>
+          </div>
+        </div>
+        <label class="form-label">Текст записи</label>
+        <textarea class="inp" id="lib-inp-text" rows="5" placeholder="Промпт, идея, заметка — всё что нужно сохранить..."></textarea>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="gen-btn" id="lib-save-btn" onclick="libSave()">💾 Сохранить</button>
+          <span id="lib-save-msg" style="font-size:13px;color:var(--gold);display:none">✓ Сохранено</span>
         </div>
       </div>
+
+      <!-- Search + filter -->
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+        <div style="position:relative;flex:1;min-width:200px">
+          <input class="inp" id="lib-search" type="text" placeholder="Поиск..." oninput="libFilter()" style="min-height:0;resize:none;margin-bottom:0;padding-left:36px">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.4;font-size:15px">🔍</span>
+        </div>
+        <div style="font-size:13px;color:var(--muted)" id="lib-count"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem" id="lib-filter-row"></div>
+
+      <!-- Grid -->
+      <div id="lib-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px"></div>
     </div>
 
   </main>
@@ -2494,178 +2506,188 @@ async function generateSVGSketch(subject) {
 
 // ========== END DARK FIRE CAROUSEL ==========
 
-// ========== PROMPT LIBRARY ==========
-let allPrompts = [];
-let activeCategory = 'all';
+// ========== NOTEPAD LIBRARY ==========
+const LIB_KEY = 'p_ivan_notepad_v2';
+let libEntries = [];
+let libEditId = null;
+let libActiveCat = 'all';
 
-async function loadLibrary() {
-  const url = document.getElementById('sheets-url').value.trim();
-  if (!url) { alert('Введи ссылку на Google Sheets CSV'); return; }
-
-  const btn = document.querySelector('[onclick="loadLibrary()"]');
-  const sp = document.getElementById('sp-library');
-  btn.disabled = true; sp.style.display = 'inline-block';
-
-  // Save URL
-  localStorage.setItem('p_ivan_sheets_url', url);
-
-  try {
-    const r = await fetch(url);
-    const text = await r.text();
-    allPrompts = parseCSV(text);
-    renderLibrary(allPrompts);
-    renderCategories();
-  } catch(e) {
-    alert('Ошибка загрузки: ' + e.message + '\nПроверь что таблица опубликована как CSV');
-  }
-  btn.disabled = false; sp.style.display = 'none';
+function libLoad() {
+  try { libEntries = JSON.parse(localStorage.getItem(LIB_KEY) || '[]'); } catch(e) { libEntries = []; }
 }
 
-function parseCSV(text) {
-  const lines = text.trim().split('\n').filter(l => l.trim());
-  if (lines.length < 2) return [];
+function libSaveStorage() {
+  localStorage.setItem(LIB_KEY, JSON.stringify(libEntries));
+}
 
-  // Parse a single CSV line handling quoted fields
-  function parseLine(line) {
-    const fields = [];
-    let current = '', inQuotes = false;
-    for (const ch of line) {
-      if (ch === '"') { inQuotes = !inQuotes; }
-      else if (ch === ',' && !inQuotes) { fields.push(current.trim().replace(/^"|"$/g,'')); current = ''; }
-      else { current += ch; }
-    }
-    fields.push(current.trim().replace(/^"|"$/g,''));
-    return fields;
+function libSave() {
+  const name = document.getElementById('lib-inp-name').value.trim();
+  const cat  = document.getElementById('lib-inp-cat').value.trim();
+  const text = document.getElementById('lib-inp-text').value.trim();
+  if (!text) { document.getElementById('lib-inp-text').focus(); return; }
+
+  if (libEditId !== null) {
+    const idx = libEntries.findIndex(e => e.id === libEditId);
+    if (idx !== -1) libEntries[idx] = { ...libEntries[idx], name, cat, text, updated: Date.now() };
+    libEditId = null;
+  } else {
+    libEntries.unshift({ id: Date.now(), name: name || 'Запись', cat, text, created: Date.now() });
   }
 
-  const rawHeaders = parseLine(lines[0]);
-  // Find the index of 'id', 'name', etc — skip empty leading columns
-  const headers = rawHeaders.map(h => h.toLowerCase().trim());
-  const nameIdx = headers.findIndex(h => h === 'name');
-  const catIdx = headers.findIndex(h => h === 'category');
-  const promptIdx = headers.findIndex(h => h === 'prompt');
-  const tagsIdx = headers.findIndex(h => h === 'tags');
-  const idIdx = headers.findIndex(h => h === 'id');
+  libSaveStorage();
+  libCancelEdit();
+  libRender();
 
-  return lines.slice(1).map((line, idx) => {
-    const fields = parseLine(line);
-    return {
-      _idx: idx,
-      id: idIdx >= 0 ? fields[idIdx] : idx,
-      name: nameIdx >= 0 ? fields[nameIdx] : '',
-      category: catIdx >= 0 ? fields[catIdx] : '',
-      prompt: promptIdx >= 0 ? fields[promptIdx] : '',
-      tags: tagsIdx >= 0 ? fields[tagsIdx] : ''
-    };
-  }).filter(p => p.name || p.prompt);
+  const msg = document.getElementById('lib-save-msg');
+  msg.style.display = 'inline';
+  setTimeout(() => msg.style.display = 'none', 1800);
 }
 
-function renderCategories() {
-  const cats = ['all', ...new Set(allPrompts.map(p => p.category).filter(Boolean))];
-  const row = document.getElementById('lib-filter-row');
-  row.innerHTML = cats.map(c => `
-    <span class="chip ${c === activeCategory ? 'active' : ''}"
-      onclick="setLibCategory('${c}', this)">${c === 'all' ? 'Все' : c}</span>
-  `).join('');
+function libEdit(id) {
+  const e = libEntries.find(x => x.id === id);
+  if (!e) return;
+  libEditId = id;
+  document.getElementById('lib-inp-name').value = e.name || '';
+  document.getElementById('lib-inp-cat').value = e.cat || '';
+  document.getElementById('lib-inp-text').value = e.text || '';
+  document.getElementById('lib-form-title').textContent = 'Редактировать';
+  document.getElementById('lib-cancel-btn').style.display = 'inline';
+  document.getElementById('lib-save-btn').innerHTML = '💾 Сохранить изменения';
+  document.getElementById('lib-form-block').scrollIntoView({ behavior: 'smooth' });
 }
 
-function setLibCategory(cat, el) {
-  activeCategory = cat;
-  document.querySelectorAll('#lib-filter-row .chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  filterLibrary();
+function libCancelEdit() {
+  libEditId = null;
+  document.getElementById('lib-inp-name').value = '';
+  document.getElementById('lib-inp-cat').value = '';
+  document.getElementById('lib-inp-text').value = '';
+  document.getElementById('lib-form-title').textContent = 'Новая запись';
+  document.getElementById('lib-cancel-btn').style.display = 'none';
+  document.getElementById('lib-save-btn').innerHTML = '💾 Сохранить';
 }
 
-function filterLibrary() {
+function libDelete(id) {
+  if (!confirm('Удалить запись?')) return;
+  libEntries = libEntries.filter(e => e.id !== id);
+  libSaveStorage();
+  libRender();
+}
+
+function libCopy(id) {
+  const e = libEntries.find(x => x.id === id);
+  if (!e) return;
+  navigator.clipboard.writeText(e.text || '').then(() => {
+    const btn = document.querySelector(`[data-copy-id="${id}"]`);
+    if (btn) { const orig = btn.innerHTML; btn.innerHTML = '✓ Скопировано'; setTimeout(() => btn.innerHTML = orig, 1600); }
+  });
+}
+
+function libUse(id) {
+  const e = libEntries.find(x => x.id === id);
+  if (!e) return;
+  const catMap = {
+    'рилс':'reels','reels':'reels',
+    'карусель':'carousel','carousel':'carousel',
+    'посты':'posts','пост':'posts','posts':'posts',
+    'сторис':'stories','stories':'stories',
+    'анализ':'analysis','analysis':'analysis'
+  };
+  const target = catMap[(e.cat||'').toLowerCase()] || null;
+  if (target && target !== 'carousel') {
+    document.querySelector(`[onclick="switchPage('${target}',this)"]`)?.click();
+    setTimeout(() => {
+      const ta = document.querySelector(`#page-${target} textarea.inp`);
+      if (ta) { ta.value = e.text; ta.focus(); }
+    }, 100);
+  } else if (target === 'carousel') {
+    document.querySelector(`[onclick="switchPage('carousel',this)"]`)?.click();
+    setTimeout(() => { const ta = document.getElementById('inp-carousel'); if (ta) { ta.value = e.text; ta.focus(); } }, 100);
+  } else {
+    navigator.clipboard.writeText(e.text || '');
+    alert('Скопировано — вставь в нужное поле (Ctrl+V)');
+  }
+}
+
+function libFilter() {
+  libRender();
+}
+
+function libSetCat(cat) {
+  libActiveCat = cat;
+  libRender();
+}
+
+function libRender() {
   const q = (document.getElementById('lib-search')?.value || '').toLowerCase();
-  const filtered = allPrompts.filter(p => {
-    const matchCat = activeCategory === 'all' || p.category === activeCategory;
-    const matchQ = !q || (p.name||'').toLowerCase().includes(q) ||
-      (p.tags||'').toLowerCase().includes(q) || (p.prompt||'').toLowerCase().includes(q);
+  const filtered = libEntries.filter(e => {
+    const matchCat = libActiveCat === 'all' || (e.cat||'') === libActiveCat;
+    const matchQ = !q || (e.name||'').toLowerCase().includes(q) || (e.text||'').toLowerCase().includes(q) || (e.cat||'').toLowerCase().includes(q);
     return matchCat && matchQ;
   });
-  renderLibrary(filtered);
-}
 
-function renderLibrary(prompts) {
+  // Update category chips
+  const cats = ['all', ...new Set(libEntries.map(e => e.cat).filter(Boolean))];
+  const filterRow = document.getElementById('lib-filter-row');
+  if (filterRow) {
+    filterRow.innerHTML = cats.map(c => `
+      <span class="chip ${c === libActiveCat ? 'active' : ''}" onclick="libActiveCat='${c}';libRender()">${c === 'all' ? 'Все' : c} <span style="font-size:10px;opacity:.55">${c === 'all' ? libEntries.length : libEntries.filter(e=>e.cat===c).length}</span></span>
+    `).join('');
+  }
+
+  // Update datalist for category autocomplete
+  const dl = document.getElementById('lib-cat-list');
+  if (dl) dl.innerHTML = [...new Set(libEntries.map(e=>e.cat).filter(Boolean))].map(c=>`<option value="${c}">`).join('');
+
+  // Count
+  const countEl = document.getElementById('lib-count');
+  if (countEl) countEl.textContent = filtered.length ? `${filtered.length} из ${libEntries.length}` : '';
+
   const grid = document.getElementById('lib-grid');
-  if (!prompts.length) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--muted);font-size:14px">Ничего не найдено</div>';
+  if (!grid) return;
+
+  if (!libEntries.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--muted);font-size:14px;line-height:2">
+      Блокнот пустой<br>
+      <span style="font-size:13px;opacity:.6">Добавь первую запись выше ↑</span>
+    </div>`;
     return;
   }
-  grid.innerHTML = prompts.map(p => `
-    <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;display:flex;flex-direction:column;gap:10px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-        <div style="font-size:14px;font-weight:500;color:var(--dark);line-height:1.3">${p.name || 'Без названия'}</div>
-        ${p.category ? `<span style="font-size:10px;background:var(--surface);padding:3px 8px;border-radius:4px;color:var(--muted);white-space:nowrap;flex-shrink:0">${p.category}</span>` : ''}
-      </div>
-      ${p.tags ? `<div style="font-size:11px;color:var(--muted)">${p.tags.split(',').map(t => `<span style="background:var(--surface);padding:2px 7px;border-radius:10px;margin-right:4px">${t.trim()}</span>`).join('')}</div>` : ''}
-      <div style="font-size:13px;color:var(--muted);line-height:1.55;max-height:80px;overflow:hidden;position:relative">
-        ${(p.prompt||'').slice(0,180)}${(p.prompt||'').length > 180 ? '...' : ''}
-      </div>
-      <div style="display:flex;gap:6px;margin-top:auto">
-        <button class="copy-btn" style="flex:1;text-align:center;padding:7px" onclick="copyPrompt(${p._idx})">📋 Копировать</button>
-        <button class="gen-btn" style="flex:1;justify-content:center;font-size:12px;padding:7px 10px" onclick="usePrompt(${p._idx})">Использовать →</button>
-      </div>
-    </div>
-  `).join('');
-}
 
-function copyPrompt(idx) {
-  const p = allPrompts[idx];
-  if (p) navigator.clipboard.writeText(p.prompt || '').then(() => alert('Скопировано!'));
-}
-
-function usePrompt(idx) {
-  const p = allPrompts[idx];
-  if (!p) return;
-  // Navigate to right page and fill in the input
-  const catMap = {
-    'reels': 'reels', 'рилс': 'reels',
-    'carousel': 'carousel', 'карусель': 'carousel',
-    'posts': 'posts', 'посты': 'posts', 'пост': 'posts',
-    'stories': 'stories', 'сторис': 'stories',
-    'analysis': 'analysis', 'анализ': 'analysis'
-  };
-  const targetPage = catMap[(p.category||'').toLowerCase()] || null;
-
-  if (targetPage && targetPage !== 'carousel') {
-    // Switch to page
-    const navBtn = document.querySelector(`[onclick="switchPage('${targetPage}',this)"]`);
-    if (navBtn) navBtn.click();
-    // Fill first textarea on that page
-    setTimeout(() => {
-      const ta = document.querySelector(`#page-${targetPage} textarea.inp`);
-      if (ta) { ta.value = p.prompt; ta.focus(); }
-    }, 100);
-  } else if (targetPage === 'carousel') {
-    const navBtn = document.querySelector(`[onclick="switchPage('carousel',this)"]`);
-    if (navBtn) navBtn.click();
-    setTimeout(() => {
-      const ta = document.getElementById('inp-carousel');
-      if (ta) { ta.value = p.prompt; ta.focus(); }
-    }, 100);
-  } else {
-    // Just copy
-    navigator.clipboard.writeText(p.prompt || '');
-    alert('Промпт скопирован — вставь в нужное поле (Ctrl+V)');
+  if (!filtered.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted);font-size:14px">Ничего не найдено</div>`;
+    return;
   }
+
+  grid.innerHTML = filtered.map(e => {
+    const preview = (e.text||'').slice(0, 160) + ((e.text||'').length > 160 ? '…' : '');
+    const ts = e.updated || e.created;
+    const date = ts ? new Date(ts).toLocaleDateString('ru-RU', {day:'numeric',month:'short'}) : '';
+    return `
+      <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="font-size:14px;font-weight:500;color:var(--dark);line-height:1.3;flex:1">${e.name || 'Без названия'}</div>
+          <div style="display:flex;gap:4px;align-items:center;flex-shrink:0">
+            ${e.cat ? `<span style="font-size:10px;background:var(--surface);padding:3px 8px;border-radius:4px;color:var(--muted)">${e.cat}</span>` : ''}
+            ${date ? `<span style="font-size:10px;color:var(--muted);opacity:.5">${date}</span>` : ''}
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6;flex:1">${preview}</div>
+        <div style="display:flex;gap:6px;margin-top:auto;flex-wrap:wrap">
+          <button class="copy-btn" style="padding:6px 12px" data-copy-id="${e.id}" onclick="libCopy(${e.id})">📋 Копировать</button>
+          <button class="gen-btn" style="justify-content:center;font-size:12px;padding:6px 12px" onclick="libUse(${e.id})">Вставить →</button>
+          <button class="copy-btn" style="padding:6px 10px;margin-left:auto" onclick="libEdit(${e.id})" title="Редактировать">✏️</button>
+          <button class="copy-btn" style="padding:6px 10px;color:#c0392b;border-color:rgba(192,57,43,0.3)" onclick="libDelete(${e.id})" title="Удалить">🗑</button>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
-// Auto-load saved URL on page load
 window.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('p_ivan_sheets_url');
-  if (saved) {
-    document.getElementById('sheets-url').value = saved;
-    // Auto-load silently
-    fetch(saved).then(r => r.text()).then(text => {
-      allPrompts = parseCSV(text);
-      renderLibrary(allPrompts);
-      renderCategories();
-    }).catch(() => {});
-  }
+  libLoad();
+  libRender();
 });
-// ========== END LIBRARY ==========
+// ========== END NOTEPAD LIBRARY ==========
 
 
 // Wire badge chips
