@@ -901,14 +901,27 @@ async function generateCarousel() {
     // Generate SVG sketches for content slides that have sketch.subject
     const sketchStyle = document.querySelector('[data-slide-style].active')?.dataset.slideStyle;
     if (sketchStyle === 'sketch') {
-      const sketchSlides = slides.filter(s => s.type === 'content' && (s.sketch?.subject || s.sketch?.type));
+      // Generate for ALL content slides, not just ones with sketch.type
+      const sketchSlides = slides.filter(s => s.type === 'content');
       let done = 0;
       for (const slide of sketchSlides) {
-        const subject = slide.sketch?.subject || buildSketchSubject(slide);
-        btnText.textContent = ` Рисую скетч ${++done}/${sketchSlides.length}...`;
-        const svg = await generateSVGSketch(subject);
+        // Build rich subject from slide content
+        const slideText = (slide.title || '') + ' ' + (slide.body || '');
+        const subject = slide.sketch?.subject
+          || (slide.sketch?.type ? buildSketchSubject(slide) : null)
+          || buildSketchSubject(slide);
+        const richSubject = subject + '. Контекст: ' + slideText.slice(0, 100);
+        btnText.textContent = ' Рисую скетч ' + (++done) + '/' + sketchSlides.length + '...';
+        const svg = await generateSVGSketch(richSubject);
         if (svg) slide._svgSketch = svg;
+        // Set style on all slides
+        slide.style = 'sketch';
       }
+    } else if (sketchStyle === 'infographic') {
+      // Set infographic style on all content slides
+      slides.forEach(s => { if (s.type === 'content') s.style = 'infographic'; });
+    } else {
+      slides.forEach(s => { if (s.type === 'content') s.style = sketchStyle || 'infographic'; });
     }
 
     currentSlide = 0;
@@ -2271,7 +2284,14 @@ function roundRectFill(ctx, x, y, w, h, r) {
 
 async function regenSketch() {
   const customPrompt = document.getElementById('custom-visual-prompt').value.trim();
-  const subject = customPrompt || buildSketchSubject(slides[currentSlide]);
+  const slide = slides[currentSlide];
+  // Build subject: custom prompt takes priority, then slide text
+  const slideContext = (slide.title || '') + ' ' + (slide.body || '');
+  const subject = customPrompt || buildSketchSubject(slide);
+  const fullSubject = customPrompt
+    ? customPrompt  // user's explicit request
+    : `${subject} (контекст: ${slideContext.slice(0,80)})`;
+
   const btn = document.querySelector('[onclick="regenSketch()"]');
   const sp = document.getElementById('sp-regen-sketch');
   btn.disabled = true; sp.style.display = 'inline-block';
@@ -2281,14 +2301,15 @@ async function regenSketch() {
   document.querySelector('[data-slide-style="sketch"]').classList.add('active');
   slides[currentSlide].style = 'sketch';
 
-  const svg = await generateSVGSketch(subject + '__custom__' + currentSlide);
+  // Always bypass cache for manual regen
+  const uniqueKey = fullSubject + '__' + Date.now();
+  const svg = await fetchSVGSketch(uniqueKey, fullSubject);
   if (svg) {
-    // Bypass cache for custom
     slides[currentSlide]._svgSketch = svg;
     drawSlide();
-    setTimeout(() => drawSlide(), 200);
+    setTimeout(() => drawSlide(), 300);
   } else {
-    alert('Не удалось сгенерировать скетч, попробуй ещё раз');
+    alert('Не удалось нарисовать скетч — попробуй ещё раз или уточни описание');
   }
   btn.disabled = false; sp.style.display = 'none';
 }
@@ -2311,28 +2332,34 @@ async function regenViz() {
   slides[currentSlide]._svgSketch = null;
 
   try {
+    const slide = slides[currentSlide];
+    const slideContext = `Заголовок: "${slide.title || ''}". Текст: "${slide.body || ''}"`;
     const r = await fetch('/.netlify/functions/claude', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 600,
-        system: 'Отвечай ТОЛЬКО валидным JSON объектом без markdown.',
-        messages: [{role:'user', content: `Преобразуй описание в JSON для инфографики: "${customPrompt}"
+        system: 'Отвечай ТОЛЬКО валидным JSON объектом без markdown. Никакого текста вокруг.',
+        messages: [{role:'user', content: `Создай инфографику для слайда.
 
-Выбери ОДИН подходящий тип и верни JSON:
+Слайд: ${slideContext}
+Запрос: "${customPrompt || 'автоматически по содержанию слайда'}"
+
+Выбери ОДИН тип и верни JSON с реальными данными из текста слайда:
 - {"type":"temperature","values":[45,27,32],"labels":["нагрев","охлаждение","рабочая"],"unit":"°C"}
-- {"type":"steps","items":["шаг 1","шаг 2","шаг 3"]}
-- {"type":"compare","left":{"label":"A","value":80},"right":{"label":"B","value":60},"unit":"%"}
-- {"type":"ratio","segments":[{"label":"сахар","value":80,"color":"orange"},{"label":"вода","value":20,"color":"gray"}]}
-- {"type":"timeline","items":[{"time":"0 мин","label":"старт"},{"time":"5 мин","label":"готово"}]}
-- {"type":"checklist","items":["пункт 1","пункт 2","пункт 3"]}
-- {"type":"scale","min":0,"max":100,"value":75,"label":"описание","unit":"%"}
+- {"type":"steps","items":["конкретный шаг 1","шаг 2","шаг 3"]}
+- {"type":"compare","left":{"label":"вариант А","value":80},"right":{"label":"вариант Б","value":40},"unit":"%"}
+- {"type":"ratio","segments":[{"label":"компонент","value":80,"color":"orange"},{"label":"другой","value":20,"color":"gray"}]}
+- {"type":"timeline","items":[{"time":"0 мин","label":"действие"},{"time":"5 мин","label":"результат"}]}
+- {"type":"checklist","items":["конкретный пункт из текста","пункт 2","пункт 3"]}
+- {"type":"scale","min":0,"max":100,"value":75,"label":"что измеряем","unit":"%"}
 
-Только JSON, никакого текста вокруг.`}]
+ВАЖНО: используй конкретные числа и слова из текста слайда. Только JSON.`}]
       })
     });
     const data = await r.json();
+    if (data.error) throw new Error(data.error.message || data.error);
     let text = data.content?.map(b => b.text||'').join('') || '';
     text = text.replace(/```json|```/g,'').trim();
     const viz = JSON.parse(text);
@@ -2344,28 +2371,21 @@ async function regenViz() {
   btn.disabled = false; sp.style.display = 'none';
 }
 
-// Override generateSVGSketch to handle custom subjects
-const _origGenSVG = generateSVGSketch;
-async function generateSVGSketch(subject) {
-  // Strip custom suffix for cache
-  const cacheKey = subject.replace(/__custom__\d+$/, '');
-  if (svgSketchCache[cacheKey] && !subject.includes('__custom__')) {
-    return svgSketchCache[cacheKey];
-  }
-  const cleanSubject = cacheKey;
-  const svgPrompt = `Нарисуй детальный SVG-скетч в стиле карандашного рисунка: "${cleanSubject}".
+// Core SVG fetch — always calls API
+async function fetchSVGSketch(cacheKey, subject) {
+  const svgPrompt = `Нарисуй детальный SVG-скетч в стиле карандашного рисунка: "${subject}".
 
-Требования:
-- viewBox="0 0 400 300"
-- Только линии и штриховка, fill="none" везде
-- stroke="#D4581A" для основных контуров (stroke-width="2.5")
-- stroke="rgba(212,88,26,0.35)" для штриховки теней (stroke-width="0.8")
-- stroke="rgba(212,88,26,0.15)" для фоновых деталей
-- Стиль: уверенный архитектурный скетч с детальной штриховкой
-- Объект занимает 75% пространства, центрирован
-- Добавь параллельную штриховку в тёмных зонах
-- НЕ добавляй текст, подписи, рамки, фон
-- Верни ТОЛЬКО SVG начиная с <svg и заканчивая </svg>`;
+Требования к SVG:
+- viewBox="0 0 400 300", xmlns="http://www.w3.org/2000/svg"
+- fill="none" на всех элементах
+- stroke="#D4581A" — основные контуры, stroke-width="2.5"
+- stroke="rgba(212,88,26,0.4)" — второстепенные детали, stroke-width="1.2"
+- stroke="rgba(212,88,26,0.18)" — штриховка теней, stroke-width="0.7"
+- Стиль: уверенный архитектурный скетч, детальная штриховка параллельными линиями
+- Объект занимает 75% холста, центрирован, хорошо узнаваем
+- Добавь штриховку в тёмных зонах (параллельные линии под углом 45°)
+- НЕ добавляй текст, подписи, рамки, фон, прямоугольники
+- Верни ТОЛЬКО SVG-код от <svg до </svg>, без пояснений`;
 
   try {
     const r = await fetch('/.netlify/functions/claude', {
@@ -2373,22 +2393,31 @@ async function generateSVGSketch(subject) {
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 2500,
-        system: 'Ты — иллюстратор SVG. Рисуешь детальные скетчи. Только SVG-код в ответе.',
+        max_tokens: 3000,
+        system: 'Ты — профессиональный SVG-иллюстратор. Рисуешь детальные скетчи едой и кондитерскими изделиями. Отвечай ТОЛЬКО SVG-кодом.',
         messages: [{role:'user', content: svgPrompt}]
       })
     });
     const data = await r.json();
+    if (data.error) throw new Error(data.error.message || data.error);
     let svg = data.content?.map(b => b.text||'').join('') || '';
-    svg = svg.replace(/```svg|```xml|```/g,'').trim();
+    svg = svg.replace(/```svg|```xml|```html|```/g,'').trim();
     const s = svg.indexOf('<svg'), e = svg.lastIndexOf('</svg>') + 6;
     if (s !== -1 && e > s) {
       const clean = svg.slice(s, e);
       svgSketchCache[cacheKey] = clean;
       return clean;
     }
-  } catch(e) { console.error('SVG error:', e); }
+    console.error('SVG parse failed:', svg.slice(0,200));
+  } catch(e) { console.error('SVG fetch error:', e); }
   return null;
+}
+
+// generateSVGSketch — with cache for auto-generation
+async function generateSVGSketch(subject) {
+  const cacheKey = subject.replace(/__custom__\d+$/, '');
+  if (svgSketchCache[cacheKey]) return svgSketchCache[cacheKey];
+  return fetchSVGSketch(cacheKey, subject);
 }
 
 // ========== END DARK FIRE CAROUSEL ==========
