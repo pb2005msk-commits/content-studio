@@ -2522,22 +2522,41 @@ async function loadLibrary() {
 }
 
 function parseCSV(text) {
-  const lines = text.trim().split('\n');
+  const lines = text.trim().split('\n').filter(l => l.trim());
   if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g,'').toLowerCase());
-  return lines.slice(1).map((line, idx) => {
-    // Handle quoted fields
+
+  // Parse a single CSV line handling quoted fields
+  function parseLine(line) {
     const fields = [];
     let current = '', inQuotes = false;
     for (const ch of line) {
       if (ch === '"') { inQuotes = !inQuotes; }
-      else if (ch === ',' && !inQuotes) { fields.push(current.trim()); current = ''; }
+      else if (ch === ',' && !inQuotes) { fields.push(current.trim().replace(/^"|"$/g,'')); current = ''; }
       else { current += ch; }
     }
-    fields.push(current.trim());
-    const obj = { _idx: idx };
-    headers.forEach((h, i) => obj[h] = (fields[i] || '').replace(/"/g,'').trim());
-    return obj;
+    fields.push(current.trim().replace(/^"|"$/g,''));
+    return fields;
+  }
+
+  const rawHeaders = parseLine(lines[0]);
+  // Find the index of 'id', 'name', etc — skip empty leading columns
+  const headers = rawHeaders.map(h => h.toLowerCase().trim());
+  const nameIdx = headers.findIndex(h => h === 'name');
+  const catIdx = headers.findIndex(h => h === 'category');
+  const promptIdx = headers.findIndex(h => h === 'prompt');
+  const tagsIdx = headers.findIndex(h => h === 'tags');
+  const idIdx = headers.findIndex(h => h === 'id');
+
+  return lines.slice(1).map((line, idx) => {
+    const fields = parseLine(line);
+    return {
+      _idx: idx,
+      id: idIdx >= 0 ? fields[idIdx] : idx,
+      name: nameIdx >= 0 ? fields[nameIdx] : '',
+      category: catIdx >= 0 ? fields[catIdx] : '',
+      prompt: promptIdx >= 0 ? fields[promptIdx] : '',
+      tags: tagsIdx >= 0 ? fields[tagsIdx] : ''
+    };
   }).filter(p => p.name || p.prompt);
 }
 
