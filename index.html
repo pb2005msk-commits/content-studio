@@ -811,6 +811,8 @@ const COMBOS = {
 
 // SVG sketch cache
 const svgSketchCache = {};
+// SVG image cache (pre-loaded Image objects)
+const svgImageCache = {};
 
 async function generateSVGSketch(subject) {
   if (svgSketchCache[subject]) return svgSketchCache[subject];
@@ -1644,9 +1646,6 @@ function drawViz(ctx, viz, s, SZ, PAD, C) {
     }
   }
 }
-
-// Image cache for SVG sketches
-const svgImageCache = {};
 
 function drawSVGSketchOnCanvas(ctx, svgString, SZ, PAD, type) {
   const vizY = SZ * 0.60;
