@@ -648,31 +648,34 @@ function prompt(id) {
       const slideCount = chip('cr-carousel-count') || '6';
       return `Создай карусель Instagram (${s}) по теме: "${info}".
 
-ВАЖНО: Верни ТОЛЬКО JSON массив. Никакого markdown, никаких пояснений до или после.
+ВАЖНО: Верни ТОЛЬКО JSON массив. Никакого markdown.
 
-Формат каждого слайда — строго такой:
-{"title":"ТЕКСТ","body":"текст","type":"cover","badge":"","viz":null}
+Каждый слайд:
+{"title":"ЗАГОЛОВОК","body":"текст","type":"cover|content|quote|cta","badge":"ФАКТ|ОШИБКА|ПРАВИЛО|МИФ|ТЕХНИКА|","viz":null,"sketch":null}
 
-Примеры с viz (ОБЯЗАТЕЛЬНО добавляй на 3-4 слайда где есть данные):
+Поле sketch — схематичная иллюстрация. Используй на 3-4 контентных слайдах:
+{"type":"crystals","count":5,"subject":"кристаллы шоколада полиморф V под микроскопом"} — кристаллы шоколада
+Поле subject — короткое описание объекта для рисования скетча (3-7 слов, конкретный предмет)
+{"type":"layers","items":["бисквит","крем","бисквит","ганаш"]} — торт в разрезе
+{"type":"scales","left":"250г муки","right":"1 яйцо"} — весы с продуктами
+{"type":"temperature_zones","zones":[{"temp":45,"label":"нагрев","hot":true},{"temp":27,"label":"охлаждение","hot":false},{"temp":32,"label":"рабочая","hot":true}]} — зоны температур
+{"type":"drip","layers":3,"color":"dark"} — шоколадные подтёки
+{"type":"process","steps":["шаг 1","шаг 2","шаг 3"]} — схема процесса
+{"type":"ingredients","items":[{"name":"мука","amount":"250г"},{"name":"масло","amount":"150г"},{"name":"сахар","amount":"100г"}]} — состав рецепта
+{"type":"texture","style":"smooth|rough|crystalline|airy"} — текстура крупным планом
+{"type":"tools","items":["термометр","мраморная доска","спатула"]} — инструменты
+{"type":"mistake_vs_right","wrong":"стакан","right":"весы"} — ошибка vs правило
 
-Температуры: "viz":{"type":"temperature","values":[45,27,32],"labels":["нагрев","охлаждение","рабочая"],"unit":"°C"}
-Шаги: "viz":{"type":"steps","items":["Растопить","Охладить","Поднять"]}
-Сравнение: "viz":{"type":"compare","left":{"label":"МЁД","value":80},"right":{"label":"САХАР","value":100},"unit":"%"}
-Состав: "viz":{"type":"ratio","segments":[{"label":"сахар","value":80,"color":"orange"},{"label":"вода","value":20,"color":"gray"}]}
-Таймлайн: "viz":{"type":"timeline","items":[{"time":"0 мин","label":"старт"},{"time":"3 мин","label":"темпер"}]}
-Чеклист: "viz":{"type":"checklist","items":["Весы","Термометр","Мраморная доска"]}
-Шкала: "viz":{"type":"scale","min":0,"max":100,"value":80,"label":"содержание сахара","unit":"%"}
+Поле viz — для числовых данных (температуры, %, шаги с цифрами):
+{"type":"temperature","values":[45,27,32],"labels":["нагрев","охлаждение","рабочая"],"unit":"°C"}
+{"type":"steps","items":["шаг 1","шаг 2","шаг 3"]}
+{"type":"compare","left":{"label":"A","value":80},"right":{"label":"B","value":60},"unit":"%"}
 
-Типы слайдов:
-- cover: обложка (viz:null)
-- content: основной слайд (добавляй viz!)
-- quote: цитата от первого лица в кавычках (viz:null)
-- cta: призыв последний слайд (viz:null)
-
-badge только для content: ФАКТ / ОШИБКА / ПРАВИЛО / МИФ / ТЕХНИКА
-
-Создай ровно ${slideCount} слайдов: 1 cover, ${slideCount-3} content с viz, 1 quote, 1 cta. Не больше и не меньше ${slideCount}.
-Стиль: уверенный наставник, конкретика, без воды.`;
+Правила:
+- ${slideCount} слайдов: 1 cover (без sketch/viz), ${Number(slideCount)-3} content, 1 quote (без sketch), 1 cta (без sketch)
+- На content-слайдах используй sketch ИЛИ viz — что точнее отражает смысл
+- sketch выбирай максимально конкретно под тему слайда
+- Заголовки короткие, стиль: уверенный наставник, без воды`;
     },
     'posts-ideas': () => {
       const f = document.getElementById('inp-posts-ideas').value.trim();
@@ -793,6 +796,65 @@ const COMBOS = {
   fire:     { cover: '#D4581A', coverText: '#FAF5EE', coverAccent: '#FAF5EE', coverSub: 'rgba(250,245,238,0.55)', content: '#161310', contentBorder: 'rgba(240,233,220,0.06)', cta: '#0C0B09', ctaText: '#F0E9DC' }
 };
 
+// SVG sketch cache
+const svgSketchCache = {};
+
+async function generateSVGSketch(subject) {
+  if (svgSketchCache[subject]) return svgSketchCache[subject];
+
+  const svgPrompt = `Нарисуй детальный SVG-скетч в стиле карандашного рисунка: "${subject}".
+
+Требования:
+- viewBox="0 0 400 300"
+- Только линии, штриховка, без заливки цветом
+- Стиль: архитектурный скетч, уверенные линии + штриховка для теней
+- stroke="#D4581A" для основных контуров, stroke="rgba(212,88,26,0.3)" для штриховки
+- stroke-width: основные линии 2-3px, детали 1-1.5px, штриховка 0.8px
+- fill="none" везде
+- Нарисуй объект детально, занимая 70-80% пространства
+- Добавь штриховку в тёмных зонах (параллельные линии)
+- НЕ добавляй текст, подписи, рамки
+- Верни ТОЛЬКО SVG-код начиная с <svg и заканчивая </svg>. Ничего кроме SVG.`;
+
+  try {
+    const r = await fetch('/.netlify/functions/claude', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 2000,
+        system: 'Ты — иллюстратор. Рисуешь детальные SVG-скетчи. Отвечай ТОЛЬКО SVG-кодом, без пояснений.',
+        messages: [{role:'user', content: svgPrompt}]
+      })
+    });
+    const data = await r.json();
+    let svg = data.content?.map(b => b.text||'').join('') || '';
+    // Clean up
+    svg = svg.replace(/```svg|```xml|```/g,'').trim();
+    const svgStart = svg.indexOf('<svg');
+    const svgEnd = svg.lastIndexOf('</svg>') + 6;
+    if (svgStart !== -1 && svgEnd > svgStart) {
+      svg = svg.slice(svgStart, svgEnd);
+      svgSketchCache[subject] = svg;
+      return svg;
+    }
+  } catch(e) {
+    console.error('SVG sketch error:', e);
+  }
+  return null;
+}
+
+function svgToImage(svgString) {
+  return new Promise((resolve) => {
+    const blob = new Blob([svgString], {type:'image/svg+xml'});
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
 async function generateCarousel() {
   const p = prompt('carousel');
   if (!p) return;
@@ -800,14 +862,20 @@ async function generateCarousel() {
   const sp = document.getElementById('sp-carousel');
   btn.disabled = true;
   sp.style.display = 'inline-block';
+
+  // Update loading message
+  const btnText = btn.childNodes[btn.childNodes.length - 1];
+  const origText = btnText.textContent;
+
   try {
+    btnText.textContent = ' Генерирую структуру...';
     const r = await fetch('/.netlify/functions/claude', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 1800,
-        system: `Ты — контент-менеджер шеф-кондитера Павла Ивановского (p_ivanovskiy). Стиль: уверенный огонь-наставник, не препод. Отвечай ТОЛЬКО валидным JSON без markdown.`,
+        max_tokens: 2000,
+        system: 'Ты — контент-менеджер шеф-кондитера Павла Ивановского (p_ivanovskiy). Стиль: уверенный огонь-наставник. Отвечай ТОЛЬКО валидным JSON без markdown.',
         messages: [{role:'user', content: p}]
       })
     });
@@ -816,14 +884,51 @@ async function generateCarousel() {
     let text = data.content?.map(b => b.text||'').join('') || '';
     text = text.replace(/```json|```/g,'').trim();
     slides = JSON.parse(text);
+
+    // Generate SVG sketches for content slides that have sketch.subject
+    const sketchStyle = document.querySelector('[data-slide-style].active')?.dataset.slideStyle;
+    if (sketchStyle === 'sketch') {
+      const sketchSlides = slides.filter(s => s.type === 'content' && (s.sketch?.subject || s.sketch?.type));
+      let done = 0;
+      for (const slide of sketchSlides) {
+        const subject = slide.sketch?.subject || buildSketchSubject(slide);
+        btnText.textContent = ` Рисую скетч ${++done}/${sketchSlides.length}...`;
+        const svg = await generateSVGSketch(subject);
+        if (svg) slide._svgSketch = svg;
+      }
+    }
+
     currentSlide = 0;
     renderSlideNav();
     loadSlideToEditor(0);
     document.getElementById('carousel-visual').style.display = 'block';
     document.getElementById('carousel-visual').scrollIntoView({behavior:'smooth'});
   } catch(e) { alert('Ошибка: ' + e.message); }
+
+  btnText.textContent = origText;
   btn.disabled = false;
   sp.style.display = 'none';
+}
+
+function buildSketchSubject(slide) {
+  // Build sketch subject from slide content
+  const text = ((slide.title||'') + ' ' + (slide.body||'')).toLowerCase();
+  if (text.includes('темпер') || text.includes('кристалл')) return 'кристаллы шоколада под микроскопом';
+  if (text.includes('торт') && text.includes('слой')) return 'торт в разрезе со слоями';
+  if (text.includes('эклер')) return 'эклер в разрезе с кремом';
+  if (text.includes('макарон')) return 'макарон в разрезе';
+  if (text.includes('тарт')) return 'тарт с фруктами вид сверху';
+  if (text.includes('муссов')) return 'муссовый торт в разрезе';
+  if (text.includes('шоколад')) return 'плитка шоколада с долькой';
+  if (text.includes('крем') || text.includes('взби')) return 'миска с кремом и венчик';
+  if (text.includes('карамел')) return 'карамельный соус стекает с ложки';
+  if (text.includes('бисквит')) return 'бисквит в разрезе с пористой структурой';
+  if (text.includes('глазур') || text.includes('подтек')) return 'торт с шоколадными подтёками';
+  if (text.includes('весы') || text.includes('граммы')) return 'кухонные весы с миской';
+  if (text.includes('термометр')) return 'кулинарный термометр щуп';
+  if (text.includes('ягод')) return 'ягоды малина клубника черника';
+  if (text.includes('цветок') || text.includes('декор')) return 'кондитерский декор цветы из крема';
+  return 'кондитерские инструменты и десерты';
 }
 
 function renderSlideNav() {
@@ -851,6 +956,10 @@ function loadSlideToEditor(i) {
   const slideStyle = s.style || 'infographic';
   document.querySelectorAll('[data-slide-style]').forEach(c => c.classList.toggle('active', c.dataset.slideStyle === slideStyle));
   drawSlide();
+  // If SVG sketch pending, redraw after image loads
+  if (s._svgSketch && slideStyle === 'sketch') {
+    setTimeout(() => drawSlide(), 150);
+  }
 }
 
 function setSlideType(type, el) {
@@ -1134,24 +1243,22 @@ async function downloadAllSlides() {
 function drawSlideStyle(ctx, s, SZ, PAD, C, currentCombo) {
   const style = s.style || 'infographic';
   const viz = s.viz;
+  const sketch = s.sketch;
 
-  if (style === 'clean') {
-    // No decorations at all
-    return;
-  }
+  if (style === 'clean') return;
 
   if (style === 'sketch') {
-    // Only sketch lines, no data viz
     drawSketchAccents(ctx, s, SZ, PAD, s.type || 'content');
     return;
   }
 
-  // style === 'infographic' (default)
+  // infographic mode: prefer viz data, then sketch, then abstract fallback
   if (viz && viz.type) {
     drawViz(ctx, viz, s, SZ, PAD, C);
-  } else {
-    // No viz data — draw generic sketch accent as fallback
+  } else if (sketch && sketch.type) {
     drawSketchAccents(ctx, s, SZ, PAD, s.type || 'content');
+  } else if (s.type === 'content') {
+    drawSketchAccents(ctx, s, SZ, PAD, s.type);
   }
 }
 
@@ -1508,68 +1615,626 @@ function drawViz(ctx, viz, s, SZ, PAD, C) {
   }
 }
 
-function drawSketchAccents(ctx, s, SZ, PAD, type) {
+function drawSVGSketchOnCanvas(ctx, svgString, SZ, PAD, type) {
+  // Draw SVG sketch in bottom viz zone
+  const vizY = SZ * 0.60;
+  const vizH = SZ * 0.32;
+  const vizW = SZ - PAD * 2;
+
+  // Subtle separator
   const isLight = type === 'cover';
-  const alpha = isLight ? 0.13 : 0.11;
-  const col = isLight ? `rgba(12,11,9,${alpha})` : `rgba(240,233,220,${alpha})`;
-  const orangeCol = `rgba(212,88,26,${alpha * 1.2})`;
-
-  ctx.save();
-
-  // Large organic blob bottom-right
-  ctx.strokeStyle = col;
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([6, 10]);
-  ctx.beginPath();
-  ctx.moveTo(SZ - 60, SZ * 0.65);
-  ctx.bezierCurveTo(SZ + 40, SZ * 0.55, SZ + 20, SZ * 0.85, SZ - 80, SZ * 0.92);
-  ctx.bezierCurveTo(SZ - 220, SZ, SZ - 260, SZ * 0.82, SZ - 200, SZ * 0.68);
-  ctx.bezierCurveTo(SZ - 160, SZ * 0.58, SZ - 100, SZ * 0.62, SZ - 60, SZ * 0.65);
-  ctx.stroke();
-
-  // Inner blob
+  ctx.strokeStyle = isLight ? 'rgba(12,11,9,0.07)' : 'rgba(240,233,220,0.06)';
   ctx.lineWidth = 1;
-  ctx.setLineDash([3, 8]);
-  ctx.beginPath();
-  ctx.moveTo(SZ - 90, SZ * 0.68);
-  ctx.bezierCurveTo(SZ - 20, SZ * 0.63, SZ - 10, SZ * 0.82, SZ - 110, SZ * 0.90);
-  ctx.bezierCurveTo(SZ - 200, SZ * 0.96, SZ - 230, SZ * 0.82, SZ - 185, SZ * 0.71);
-  ctx.bezierCurveTo(SZ - 155, SZ * 0.63, SZ - 115, SZ * 0.65, SZ - 90, SZ * 0.68);
-  ctx.stroke();
-
-  // Dashed circle top-right
-  ctx.strokeStyle = orangeCol;
-  ctx.lineWidth = 1.2;
-  ctx.setLineDash([8, 12]);
-  ctx.beginPath();
-  ctx.arc(SZ - 110, 110, 78, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.lineWidth = 0.8;
   ctx.setLineDash([4, 8]);
   ctx.beginPath();
-  ctx.arc(SZ - 110, 110, 46, 0, Math.PI * 2);
+  ctx.moveTo(PAD, vizY - 20);
+  ctx.lineTo(SZ - PAD, vizY - 20);
   ctx.stroke();
-
-  // Crosshair inside circle
-  ctx.strokeStyle = col;
-  ctx.lineWidth = 0.8;
-  ctx.setLineDash([2, 8]);
-  ctx.beginPath();
-  ctx.moveTo(SZ - 110, 32); ctx.lineTo(SZ - 110, 188);
-  ctx.moveTo(SZ - 188, 110); ctx.lineTo(SZ - 32, 110);
-  ctx.stroke();
-
-  // Small dot accents
   ctx.setLineDash([]);
-  ctx.fillStyle = orangeCol;
-  [[PAD + 30, SZ * 0.62], [PAD + 60, SZ * 0.58], [SZ/2, SZ * 0.60]].forEach(([x, y]) => {
-    ctx.beginPath();
-    ctx.arc(x, y, 3, 0, Math.PI*2);
-    ctx.fill();
-  });
 
+  // Draw SVG as image
+  const blob = new Blob([svgString], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    // Center and fit in viz zone
+    const scale = Math.min(vizW / img.width, vizH / img.height) * 0.95;
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = PAD + (vizW - dw) / 2;
+    const dy = vizY + (vizH - dh) / 2;
+
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.drawImage(img, dx, dy, dw, dh);
+    ctx.restore();
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+function drawSketchAccents(ctx, s, SZ, PAD, type) {
+  const isLight = type === 'cover';
+  const col = isLight ? 'rgba(12,11,9,0.22)' : 'rgba(240,233,220,0.18)';
+  const orange = 'rgba(212,88,26,0.28)';
+  const orangeSolid = '#D4581A';
+
+  // If we have a pre-generated SVG sketch, draw it
+  if (s._svgSketch) {
+    drawSVGSketchOnCanvas(ctx, s._svgSketch, SZ, PAD, type);
+    return;
+  }
+
+  // Use sketch field if available
+  const sk = s.sketch;
+  if (sk && sk.type) {
+    ctx.save();
+    dispatchSketch(ctx, sk, SZ, PAD, col, orange, orangeSolid, isLight);
+    ctx.restore();
+    return;
+  }
+
+  // Fallback: detect from text
+  const text = ((s.title||'') + ' ' + (s.body||'')).toLowerCase();
+  ctx.save();
+  if (text.includes('темпер') || text.includes('кристалл') || text.includes('структур')) {
+    sketchCrystals(ctx, SZ, PAD, col, orange, orangeSolid, 5);
+  } else if (text.includes('слой') || text.includes('бисквит') || text.includes('сборк')) {
+    sketchLayers(ctx, SZ, PAD, col, orange, orangeSolid, ['бисквит','крем','бисквит','ганаш']);
+  } else if (text.includes('граммы') || text.includes('весы') || text.includes('взвеш') || text.includes('точност')) {
+    sketchScales(ctx, SZ, PAD, col, orange, orangeSolid, '250г', '1 яйцо');
+  } else if (text.includes('температур') || text.includes('°') || text.includes('градус')) {
+    sketchTempZones(ctx, SZ, PAD, col, orange, orangeSolid, [{temp:45,label:'нагрев',hot:true},{temp:27,label:'охлажд.',hot:false},{temp:32,label:'рабочая',hot:true}]);
+  } else if (text.includes('шоколад') || text.includes('глазур') || text.includes('подтек')) {
+    sketchDrip(ctx, SZ, PAD, col, orange, orangeSolid, 3, 'dark');
+  } else if (text.includes('инструмент') || text.includes('термометр') || text.includes('лопатк')) {
+    sketchTools(ctx, SZ, PAD, col, orange, orangeSolid, ['термометр','спатула','скребок']);
+  } else {
+    sketchAbstractGeo(ctx, SZ, PAD, col, orange, orangeSolid);
+  }
   ctx.restore();
+}
+
+function dispatchSketch(ctx, sk, SZ, PAD, col, orange, orangeSolid, isLight) {
+  switch(sk.type) {
+    case 'crystals':
+      sketchCrystals(ctx, SZ, PAD, col, orange, orangeSolid, sk.count || 5); break;
+    case 'layers':
+      sketchLayers(ctx, SZ, PAD, col, orange, orangeSolid, sk.items || []); break;
+    case 'scales':
+      sketchScales(ctx, SZ, PAD, col, orange, orangeSolid, sk.left || '', sk.right || ''); break;
+    case 'temperature_zones':
+      sketchTempZones(ctx, SZ, PAD, col, orange, orangeSolid, sk.zones || []); break;
+    case 'drip':
+      sketchDrip(ctx, SZ, PAD, col, orange, orangeSolid, sk.layers || 3, sk.color || 'dark'); break;
+    case 'process':
+      sketchProcess(ctx, SZ, PAD, col, orange, orangeSolid, sk.steps || []); break;
+    case 'ingredients':
+      sketchIngredients(ctx, SZ, PAD, col, orange, orangeSolid, sk.items || []); break;
+    case 'texture':
+      sketchTexture(ctx, SZ, PAD, col, orange, orangeSolid, sk.style || 'smooth'); break;
+    case 'tools':
+      sketchTools(ctx, SZ, PAD, col, orange, orangeSolid, sk.items || []); break;
+    case 'mistake_vs_right':
+      sketchMistakeVsRight(ctx, SZ, PAD, col, orange, orangeSolid, sk.wrong || '', sk.right || ''); break;
+    default:
+      sketchAbstractGeo(ctx, SZ, PAD, col, orange, orangeSolid);
+  }
+}
+
+// Helper: wobbly line
+function skLine(ctx, x1,y1,x2,y2) {
+  const mx=(x1+x2)/2+(Math.random()-0.5)*4, my=(y1+y2)/2+(Math.random()-0.5)*4;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.quadraticCurveTo(mx,my,x2,y2); ctx.stroke();
+}
+
+// ── CRYSTALS (шоколадные кристаллы V-полиморфы) ──
+function sketchCrystals(ctx, SZ, PAD, col, orange, orangeSolid, count) {
+  const VIZ_Y = SZ * 0.60;
+  const VIZ_H = SZ * 0.30;
+  const cx = SZ / 2;
+  const crystalTypes = [
+    // type V crystal (good) — pointed hexagon
+    (x,y,s,good) => {
+      ctx.strokeStyle = good ? orangeSolid : col;
+      ctx.lineWidth = good ? 2.5 : 1.8;
+      ctx.fillStyle = good ? orange : col;
+      ctx.globalAlpha = good ? 0.15 : 0.08;
+      ctx.beginPath();
+      for (let i=0;i<6;i++) {
+        const a=i/6*Math.PI*2-Math.PI/6;
+        const r = good ? s : s*0.7;
+        i===0 ? ctx.moveTo(x+Math.cos(a)*r, y+Math.sin(a)*r) : ctx.lineTo(x+Math.cos(a)*r, y+Math.sin(a)*r);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1; ctx.stroke();
+      // Internal lines for crystal look
+      if (good) {
+        ctx.lineWidth = 1; ctx.strokeStyle = orangeSolid;
+        ctx.globalAlpha = 0.3;
+        for (let i=0;i<6;i++) {
+          const a=i/6*Math.PI*2-Math.PI/6;
+          ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.cos(a)*s*0.7, y+Math.sin(a)*s*0.7); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+  ];
+
+  // Draw 5-7 crystals in viz zone
+  const positions = [
+    [cx-220, VIZ_Y+VIZ_H*0.4, 55, true],
+    [cx-100, VIZ_Y+VIZ_H*0.5, 70, true],
+    [cx+20,  VIZ_Y+VIZ_H*0.35, 48, false],
+    [cx+130, VIZ_Y+VIZ_H*0.55, 65, true],
+    [cx+240, VIZ_Y+VIZ_H*0.42, 42, false],
+    [cx-170, VIZ_Y+VIZ_H*0.7,  38, true],
+    [cx+80,  VIZ_Y+VIZ_H*0.75, 44, false],
+  ];
+
+  positions.slice(0, count+2).forEach(([x,y,s,good]) => crystalTypes[0](x,y,s,good));
+
+  // Labels
+  ctx.fillStyle = orangeSolid; ctx.font = 'bold 22px Arial Black, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Полиморф V', cx-110, VIZ_Y+VIZ_H*0.95);
+  ctx.fillStyle = col; ctx.font = '300 20px DM Sans, sans-serif';
+  ctx.fillText('нестабильный', cx+155, VIZ_Y+VIZ_H*0.95);
+  ctx.textAlign = 'left';
+}
+
+// ── LAYERS (торт в разрезе) ──
+function sketchLayers(ctx, SZ, PAD, col, orange, orangeSolid, items) {
+  const VIZ_Y = SZ * 0.61;
+  const VIZ_H = SZ * 0.30;
+  const n = Math.min(items.length, 6);
+  const lh = (VIZ_H * 0.85) / n;
+  const lw = SZ - PAD*2 - 40;
+  const lx = PAD + 20;
+
+  items.slice(0,n).forEach((label,i) => {
+    const y = VIZ_Y + VIZ_H*0.05 + i*lh;
+    const isCream = label.toLowerCase().includes('крем') || label.toLowerCase().includes('ганаш') || label.toLowerCase().includes('мусс');
+
+    // Layer fill
+    ctx.fillStyle = isCream ? orange : col;
+    ctx.globalAlpha = isCream ? 0.18 : 0.09;
+    ctx.fillRect(lx, y, lw, lh-3);
+    ctx.globalAlpha = 1;
+
+    // Layer outline
+    ctx.strokeStyle = isCream ? orangeSolid : col;
+    ctx.lineWidth = isCream ? 2.5 : 1.8;
+    skLine(ctx, lx, y, lx+lw, y);
+    skLine(ctx, lx, y+lh-3, lx+lw, y+lh-3);
+    ctx.beginPath(); ctx.moveTo(lx,y); ctx.lineTo(lx,y+lh-3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(lx+lw,y); ctx.lineTo(lx+lw,y+lh-3); ctx.stroke();
+
+    // Label
+    ctx.fillStyle = isCream ? orangeSolid : col;
+    ctx.globalAlpha = isCream ? 0.9 : 0.6;
+    ctx.font = isCream ? 'bold 22px Arial Black, sans-serif' : '300 20px DM Sans, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, lx + lw/2, y + lh/2 + 8);
+    ctx.globalAlpha = 1;
+
+    // Arrow for cream layers
+    if (isCream) {
+      ctx.strokeStyle = orangeSolid; ctx.lineWidth = 2;
+      skLine(ctx, lx-10, y+lh/2, lx-40, y+lh/2);
+      ctx.beginPath();
+      ctx.moveTo(lx-10, y+lh/2);
+      ctx.lineTo(lx-22, y+lh/2-7);
+      ctx.moveTo(lx-10, y+lh/2);
+      ctx.lineTo(lx-22, y+lh/2+7);
+      ctx.stroke();
+    }
+  });
+  ctx.textAlign = 'left';
+}
+
+// ── SCALES (весы с продуктами) ──
+function sketchScales(ctx, SZ, PAD, col, orange, orangeSolid, leftLabel, rightLabel) {
+  const VIZ_Y = SZ * 0.60;
+  const VIZ_H = SZ * 0.31;
+  const cx = SZ/2;
+  const baseY = VIZ_Y + VIZ_H * 0.92;
+
+  // Base + pole
+  ctx.strokeStyle = col; ctx.lineWidth = 3;
+  skLine(ctx, cx-70, baseY, cx+70, baseY);
+  skLine(ctx, cx-30, baseY, cx-30, baseY+25);
+  skLine(ctx, cx+30, baseY, cx+30, baseY+25);
+  skLine(ctx, cx-70, baseY+25, cx+70, baseY+25);
+  skLine(ctx, cx, baseY, cx, VIZ_Y+VIZ_H*0.1);
+
+  // Beam (slightly tilted toward heavier side)
+  const tilt = 12;
+  ctx.lineWidth = 3;
+  skLine(ctx, cx-160, VIZ_Y+VIZ_H*0.1+tilt, cx+160, VIZ_Y+VIZ_H*0.1-tilt);
+
+  // Left pan (heavier, lower)
+  const lpY = VIZ_Y + VIZ_H*0.45;
+  ctx.lineWidth = 2;
+  skLine(ctx, cx-160, VIZ_Y+VIZ_H*0.1+tilt, cx-170, lpY);
+  skLine(ctx, cx-160, VIZ_Y+VIZ_H*0.1+tilt, cx-150, lpY);
+  // Pan curve
+  ctx.beginPath();
+  ctx.moveTo(cx-185, lpY);
+  ctx.bezierCurveTo(cx-185, lpY+35, cx-125, lpY+35, cx-125, lpY);
+  ctx.stroke();
+  skLine(ctx, cx-185, lpY, cx-125, lpY);
+
+  // Right pan (lighter, higher)
+  const rpY = VIZ_Y + VIZ_H*0.38;
+  skLine(ctx, cx+160, VIZ_Y+VIZ_H*0.1-tilt, cx+170, rpY);
+  skLine(ctx, cx+160, VIZ_Y+VIZ_H*0.1-tilt, cx+150, rpY);
+  ctx.beginPath();
+  ctx.moveTo(cx+125, rpY);
+  ctx.bezierCurveTo(cx+125, rpY+35, cx+185, rpY+35, cx+185, rpY);
+  ctx.stroke();
+  skLine(ctx, cx+125, rpY, cx+185, rpY);
+
+  // Items on pans
+  ctx.fillStyle = orange; ctx.globalAlpha = 0.25;
+  ctx.beginPath(); ctx.ellipse(cx-155, lpY-8, 28, 16, 0, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = orangeSolid; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(cx-155, lpY-8, 28, 16, 0, 0, Math.PI*2); ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = orangeSolid; ctx.font = 'bold 24px Arial Black, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(leftLabel, cx-155, lpY+55);
+  ctx.fillStyle = col; ctx.font = '300 22px DM Sans, sans-serif';
+  ctx.fillText(rightLabel, cx+155, rpY+55);
+  ctx.textAlign = 'left';
+}
+
+// ── TEMPERATURE ZONES ──
+function sketchTempZones(ctx, SZ, PAD, col, orange, orangeSolid, zones) {
+  const VIZ_Y = SZ * 0.62;
+  const VIZ_H = SZ * 0.28;
+  const n = zones.length;
+  const zw = (SZ - PAD*2) / n;
+
+  zones.forEach((zone, i) => {
+    const zx = PAD + i * zw;
+    const isHot = zone.hot;
+    const rectH = VIZ_H * 0.55;
+    const rectY = VIZ_Y + VIZ_H * 0.1;
+
+    // Zone block
+    ctx.fillStyle = isHot ? orange : col;
+    ctx.globalAlpha = isHot ? 0.22 : 0.08;
+    ctx.fillRect(zx+8, rectY, zw-16, rectH);
+    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = isHot ? orangeSolid : col;
+    ctx.lineWidth = isHot ? 2.5 : 1.5;
+    ctx.strokeRect(zx+8, rectY, zw-16, rectH);
+
+    // Temp value — big
+    ctx.fillStyle = isHot ? orangeSolid : col;
+    ctx.globalAlpha = isHot ? 1 : 0.6;
+    ctx.font = `bold ${isHot ? 52 : 42}px Arial Black, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText((zone.temp || '') + '°', zx + zw/2, rectY + rectH*0.58);
+
+    // Label below
+    ctx.font = `300 22px DM Sans, sans-serif`;
+    ctx.fillStyle = isHot ? orangeSolid : col;
+    ctx.fillText(zone.label || '', zx + zw/2, rectY + rectH + 36);
+    ctx.globalAlpha = 1;
+
+    // Arrow between zones
+    if (i < n-1) {
+      const ax = zx + zw - 8;
+      const ay = rectY + rectH/2;
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+      ctx.setLineDash([4,6]);
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax+12, ay); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+  ctx.textAlign = 'left';
+}
+
+// ── DRIP (подтёки) ──
+function sketchDrip(ctx, SZ, PAD, col, orange, orangeSolid, layers, color) {
+  const VIZ_Y = SZ * 0.60;
+  const VIZ_H = SZ * 0.30;
+  const cakeW = SZ - PAD*2 - 60;
+  const cakeX = PAD + 30;
+  const topY = VIZ_Y + VIZ_H * 0.1;
+  const botY = VIZ_Y + VIZ_H * 0.85;
+
+  // Cake body
+  ctx.fillStyle = col; ctx.globalAlpha = 0.07;
+  ctx.fillRect(cakeX, topY+30, cakeW, botY-topY-30);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = col; ctx.lineWidth = 2;
+  ctx.strokeRect(cakeX, topY+30, cakeW, botY-topY-30);
+
+  // Top surface
+  ctx.strokeStyle = col; ctx.lineWidth = 2.5;
+  skLine(ctx, cakeX, topY+30, cakeX+cakeW, topY+30);
+
+  // Ganache pool on top
+  ctx.fillStyle = orange; ctx.globalAlpha = 0.2;
+  ctx.fillRect(cakeX, topY, cakeW, 30);
+  ctx.globalAlpha = 1;
+
+  // Drips
+  const dripCount = 7;
+  ctx.strokeStyle = orangeSolid; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.fillStyle = orangeSolid;
+  for (let i = 0; i < dripCount; i++) {
+    const dx = cakeX + (cakeW / (dripCount+1)) * (i+1);
+    const dripLen = 40 + ((i*37)%60);
+    ctx.beginPath();
+    ctx.moveTo(dx, topY + 28);
+    ctx.bezierCurveTo(dx-4, topY+28+dripLen*0.5, dx+4, topY+28+dripLen*0.8, dx, topY+28+dripLen);
+    ctx.stroke();
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath(); ctx.arc(dx, topY+28+dripLen, 8, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Layer lines inside cake
+  if (layers > 1) {
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.setLineDash([6,8]);
+    for (let l = 1; l < layers; l++) {
+      const ly = topY + 30 + (botY - topY - 30) * l / layers;
+      skLine(ctx, cakeX+4, ly, cakeX+cakeW-4, ly);
+    }
+    ctx.setLineDash([]);
+  }
+  ctx.lineCap = 'butt';
+}
+
+// ── PROCESS (схема процесса) ──
+function sketchProcess(ctx, SZ, PAD, col, orange, orangeSolid, steps) {
+  const VIZ_Y = SZ * 0.61;
+  const VIZ_H = SZ * 0.30;
+  const n = Math.min(steps.length, 4);
+  const sw = (SZ - PAD*2) / n;
+  const cy = VIZ_Y + VIZ_H * 0.4;
+  const r = Math.min(44, sw * 0.32);
+
+  steps.slice(0,n).forEach((step, i) => {
+    const cx = PAD + sw*i + sw/2;
+    const isLast = i === n-1;
+
+    // Connector
+    if (i < n-1) {
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([5,7]);
+      ctx.beginPath(); ctx.moveTo(cx+r+4, cy); ctx.lineTo(cx+sw-r-4, cy); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = orangeSolid; ctx.lineWidth = 2.5;
+      const ax = cx+sw-r-4;
+      ctx.beginPath();
+      ctx.moveTo(ax-12, cy-8); ctx.lineTo(ax, cy); ctx.lineTo(ax-12, cy+8);
+      ctx.stroke();
+    }
+
+    // Circle
+    ctx.fillStyle = isLast ? orange : col;
+    ctx.globalAlpha = isLast ? 0.25 : 0.1;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = isLast ? orangeSolid : col;
+    ctx.lineWidth = isLast ? 3 : 2;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+
+    // Number
+    ctx.fillStyle = isLast ? orangeSolid : col;
+    ctx.globalAlpha = isLast ? 1 : 0.7;
+    ctx.font = `bold ${Math.round(r*0.7)}px Arial Black, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(i+1, cx, cy + Math.round(r*0.28));
+
+    // Label
+    ctx.font = `300 ${Math.min(22, Math.round(sw*0.17))}px DM Sans, sans-serif`;
+    ctx.fillStyle = isLast ? orangeSolid : col;
+    const words = step.split(' ');
+    let line='', ly = cy+r+32;
+    for (const w of words) {
+      const t = line+w+' ';
+      if (ctx.measureText(t).width > sw-20 && line) {
+        ctx.fillText(line.trim(), cx, ly); line=w+' '; ly+=26;
+      } else line=t;
+    }
+    ctx.fillText(line.trim(), cx, ly);
+    ctx.globalAlpha = 1;
+  });
+  ctx.textAlign = 'left';
+}
+
+// ── INGREDIENTS (состав рецепта) ──
+function sketchIngredients(ctx, SZ, PAD, col, orange, orangeSolid, items) {
+  const VIZ_Y = SZ * 0.61;
+  const VIZ_H = SZ * 0.30;
+  const n = Math.min(items.length, 4);
+  const iw = (SZ - PAD*2) / n;
+
+  items.slice(0,n).forEach((item, i) => {
+    const ix = PAD + iw*i + iw/2;
+    const iy = VIZ_Y + VIZ_H*0.2;
+    const isMain = i === 0;
+
+    // Icon circle
+    ctx.fillStyle = isMain ? orange : col;
+    ctx.globalAlpha = isMain ? 0.2 : 0.09;
+    ctx.beginPath(); ctx.arc(ix, iy+30, 36, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = isMain ? orangeSolid : col;
+    ctx.lineWidth = isMain ? 2.5 : 1.8;
+    ctx.beginPath(); ctx.arc(ix, iy+30, 36, 0, Math.PI*2); ctx.stroke();
+
+    // Amount — big
+    ctx.fillStyle = isMain ? orangeSolid : col;
+    ctx.globalAlpha = isMain ? 1 : 0.65;
+    ctx.font = `bold 28px Arial Black, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(item.amount || '', ix, iy+38);
+
+    // Name below
+    ctx.font = `300 22px DM Sans, sans-serif`;
+    ctx.fillText(item.name || '', ix, iy+90);
+    ctx.globalAlpha = 1;
+  });
+  ctx.textAlign = 'left';
+}
+
+// ── TEXTURE ──
+function sketchTexture(ctx, SZ, PAD, col, orange, orangeSolid, style) {
+  const VIZ_Y = SZ * 0.61;
+  const VIZ_H = SZ * 0.30;
+  const cx = SZ/2, cy = VIZ_Y + VIZ_H*0.45;
+  const R = VIZ_H * 0.42;
+
+  ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+
+  if (style === 'smooth') {
+    // Concentric smooth circles
+    for (let i=1; i<=5; i++) {
+      ctx.globalAlpha = 0.06 + i*0.04;
+      ctx.beginPath(); ctx.arc(cx, cy, R*i/5, 0, Math.PI*2); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = orange; ctx.globalAlpha = 0.15;
+    ctx.beginPath(); ctx.arc(cx, cy, R*0.35, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+  } else if (style === 'crystalline') {
+    sketchCrystals(ctx, SZ, PAD, col, orange, orangeSolid, 5);
+    return;
+  } else if (style === 'airy') {
+    // Random bubbles
+    const bubbles = [[cx-80,cy-40,22],[cx+50,cy-60,16],[cx-20,cy+50,30],[cx+90,cy+20,18],[cx-60,cy+30,12],[cx+10,cy-20,26]];
+    bubbles.forEach(([bx,by,br]) => {
+      ctx.fillStyle = orange; ctx.globalAlpha = 0.1;
+      ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2); ctx.stroke();
+    });
+  } else {
+    // rough — hatching
+    for (let i=0; i<16; i++) {
+      const x1 = PAD + (SZ-PAD*2)*i/16;
+      ctx.globalAlpha = 0.06 + (i%3)*0.03;
+      skLine(ctx, x1, VIZ_Y, x1+(SZ-PAD*2)/16, VIZ_Y+VIZ_H);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ── TOOLS (инструменты) ──
+function sketchTools(ctx, SZ, PAD, col, orange, orangeSolid, items) {
+  const VIZ_Y = SZ * 0.61;
+  const VIZ_H = SZ * 0.30;
+  const n = Math.min(items.length, 3);
+  const tw = (SZ - PAD*2) / n;
+
+  items.slice(0,n).forEach((name, i) => {
+    const tx = PAD + tw*i + tw/2;
+    const ty = VIZ_Y + VIZ_H*0.15;
+    const isMain = i===1;
+
+    ctx.strokeStyle = isMain ? orangeSolid : col;
+    ctx.lineWidth = isMain ? 2.5 : 2;
+    ctx.fillStyle = isMain ? orange : col;
+    const nm = name.toLowerCase();
+
+    if (nm.includes('термометр') || nm.includes('щуп')) {
+      // Probe thermometer
+      skLine(ctx, tx, ty, tx, ty+VIZ_H*0.55);
+      ctx.globalAlpha = 0.15; ctx.beginPath(); ctx.arc(tx, ty, 18, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(tx, ty, 18, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle = orangeSolid; ctx.font='bold 18px Arial Black,sans-serif'; ctx.textAlign='center';
+      ctx.fillText('T°', tx, ty+6);
+    } else if (nm.includes('лопатк') || nm.includes('спатул') || nm.includes('шпател')) {
+      // Offset spatula
+      ctx.beginPath();
+      ctx.moveTo(tx-8, ty); ctx.lineTo(tx+8, ty); ctx.lineTo(tx+6, ty+VIZ_H*0.35);
+      ctx.lineTo(tx-6, ty+VIZ_H*0.35); ctx.closePath();
+      ctx.globalAlpha=0.12; ctx.fill(); ctx.globalAlpha=1; ctx.stroke();
+      skLine(ctx, tx, ty+VIZ_H*0.35, tx, ty+VIZ_H*0.6);
+    } else if (nm.includes('скребок') || nm.includes('кард')) {
+      // Bench scraper
+      ctx.globalAlpha=0.12;
+      ctx.fillRect(tx-30, ty, 60, VIZ_H*0.5);
+      ctx.globalAlpha=1;
+      ctx.strokeRect(tx-30, ty, 60, VIZ_H*0.5);
+      skLine(ctx, tx-30, ty+VIZ_H*0.5, tx+30, ty+VIZ_H*0.5);
+    } else {
+      // Generic tool — wrench shape
+      ctx.globalAlpha=0.12;
+      ctx.beginPath(); ctx.ellipse(tx, ty+20, 20, 14, 0, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1; ctx.stroke();
+      skLine(ctx, tx, ty+34, tx, ty+VIZ_H*0.55);
+    }
+
+    ctx.fillStyle = isMain ? orangeSolid : col;
+    ctx.globalAlpha = 0.75;
+    ctx.font = `300 20px DM Sans, sans-serif`; ctx.textAlign = 'center';
+    ctx.fillText(name, tx, VIZ_Y+VIZ_H*0.9);
+    ctx.globalAlpha = 1;
+  });
+  ctx.textAlign = 'left';
+}
+
+// ── MISTAKE VS RIGHT ──
+function sketchMistakeVsRight(ctx, SZ, PAD, col, orange, orangeSolid, wrong, right) {
+  const VIZ_Y = SZ * 0.61;
+  const VIZ_H = SZ * 0.30;
+  const half = (SZ - PAD*2) / 2;
+
+  // Divider
+  ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.setLineDash([6,8]);
+  skLine(ctx, SZ/2, VIZ_Y+10, SZ/2, VIZ_Y+VIZ_H-10);
+  ctx.setLineDash([]);
+
+  // Left: WRONG (X mark)
+  const lx = PAD + half/2, ly = VIZ_Y + VIZ_H*0.35;
+  ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.globalAlpha = 0.5;
+  skLine(ctx, lx-28, ly-28, lx+28, ly+28);
+  skLine(ctx, lx+28, ly-28, lx-28, ly+28);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = col; ctx.globalAlpha = 0.6;
+  ctx.font = 'bold 26px Arial Black, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(wrong, lx, ly+65); ctx.globalAlpha = 1;
+
+  // Wrong label
+  ctx.fillStyle = col; ctx.font = '300 20px DM Sans, sans-serif';
+  ctx.globalAlpha = 0.5; ctx.fillText('❌ неверно', lx, VIZ_Y+VIZ_H*0.88); ctx.globalAlpha = 1;
+
+  // Right: CORRECT (checkmark)
+  const rx = PAD + half + half/2, ry = ly;
+  ctx.strokeStyle = orangeSolid; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(rx-28, ry); ctx.lineTo(rx-8, ry+24); ctx.lineTo(rx+28, ry-24); ctx.stroke();
+  ctx.fillStyle = orangeSolid;
+  ctx.font = 'bold 26px Arial Black, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(right, rx, ly+65);
+  ctx.font = '300 20px DM Sans, sans-serif';
+  ctx.fillText('✓ правильно', rx, VIZ_Y+VIZ_H*0.88);
+  ctx.textAlign = 'left';
+}
+
+// ── ABSTRACT GEO (fallback) ──
+function sketchAbstractGeo(ctx, SZ, PAD, col, orange, orangeSolid) {
+  const VIZ_Y = SZ * 0.62;
+  const cx = SZ/2;
+  ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+  ctx.setLineDash([8, 12]);
+  ctx.beginPath(); ctx.arc(cx, VIZ_Y+80, 90, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([4, 8]);
+  ctx.beginPath(); ctx.arc(cx, VIZ_Y+80, 52, 0, Math.PI*2); ctx.stroke();
+  ctx.strokeStyle = orangeSolid; ctx.lineWidth = 3; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(cx, VIZ_Y+80, 90, -Math.PI*0.5, Math.PI*0.2); ctx.stroke();
+  ctx.fillStyle = orangeSolid; ctx.globalAlpha = 0.6;
+  ctx.beginPath(); ctx.arc(cx, VIZ_Y+80, 8, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.setLineDash([]);
 }
 
 function roundRectFill(ctx, x, y, w, h, r) {
