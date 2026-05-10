@@ -158,7 +158,8 @@ textarea.inp:focus { border-color: var(--gold); background: white; }
     <button class="nav-item" onclick="switchPage('posts',this)"><span class="nav-icon">✦</span>Посты</button>
     <button class="nav-item" onclick="switchPage('stories',this)"><span class="nav-icon">◯</span>Сторис</button>
     <div style="height:1px;background:rgba(255,255,255,0.06);margin:10px 1.25rem"></div>
-    <span class="sidebar-label">АНАЛИТИКА</span>
+    <span class="sidebar-label">ИНСТРУМЕНТЫ</span>
+    <button class="nav-item" onclick="switchPage('library',this)"><span class="nav-icon">📚</span>Библиотека</button>
     <button class="nav-item" onclick="switchPage('analysis',this)"><span class="nav-icon">📊</span>Анализ</button>
   </nav>
 
@@ -576,6 +577,39 @@ textarea.inp:focus { border-color: var(--gold); background: white; }
         <div class="result-wrap" id="res-analysis-improve">
           <div class="result-head"><span class="result-label">УЛУЧШЕННАЯ ВЕРСИЯ</span><button class="copy-btn" onclick="copyRes('analysis-improve')">📋 Копировать</button></div>
           <div class="result-body" id="body-analysis-improve"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- LIBRARY PAGE -->
+    <div id="page-library" class="page">
+      <div class="page-title">Библиотека промптов</div>
+      <div class="page-desc">Готовые промпты — нажми "Использовать" чтобы вставить в нужное поле</div>
+
+      <!-- Settings -->
+      <div class="form-block active" style="margin-bottom:1.25rem">
+        <label class="form-label">Ссылка на Google Sheets CSV</label>
+        <span class="form-hint">Файл → Опубликовать в интернете → CSV → скопируй ссылку</span>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <input class="inp" id="sheets-url" type="text" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv" style="min-height:0;resize:none;flex:1;margin-bottom:0">
+          <button class="gen-btn" style="padding:10px 16px;white-space:nowrap" onclick="loadLibrary()">
+            <span class="spinner" id="sp-library" style="display:none"></span>Загрузить
+          </button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap" id="lib-filter-row"></div>
+      </div>
+
+      <!-- Search -->
+      <div style="position:relative;margin-bottom:1.25rem">
+        <input class="inp" id="lib-search" type="text" placeholder="Поиск по названию или тегам..." oninput="filterLibrary()" style="min-height:0;resize:none;margin-bottom:0;padding-left:40px">
+        <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.4;font-size:16px">🔍</span>
+      </div>
+
+      <!-- Prompts grid -->
+      <div id="lib-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
+        <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--muted);font-size:14px">
+          Добавь ссылку на Google Sheets выше и нажми "Загрузить"
         </div>
       </div>
     </div>
@@ -2459,6 +2493,161 @@ async function generateSVGSketch(subject) {
 }
 
 // ========== END DARK FIRE CAROUSEL ==========
+
+// ========== PROMPT LIBRARY ==========
+let allPrompts = [];
+let activeCategory = 'all';
+
+async function loadLibrary() {
+  const url = document.getElementById('sheets-url').value.trim();
+  if (!url) { alert('Введи ссылку на Google Sheets CSV'); return; }
+
+  const btn = document.querySelector('[onclick="loadLibrary()"]');
+  const sp = document.getElementById('sp-library');
+  btn.disabled = true; sp.style.display = 'inline-block';
+
+  // Save URL
+  localStorage.setItem('p_ivan_sheets_url', url);
+
+  try {
+    const r = await fetch(url);
+    const text = await r.text();
+    allPrompts = parseCSV(text);
+    renderLibrary(allPrompts);
+    renderCategories();
+  } catch(e) {
+    alert('Ошибка загрузки: ' + e.message + '\nПроверь что таблица опубликована как CSV');
+  }
+  btn.disabled = false; sp.style.display = 'none';
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g,'').toLowerCase());
+  return lines.slice(1).map((line, idx) => {
+    // Handle quoted fields
+    const fields = [];
+    let current = '', inQuotes = false;
+    for (const ch of line) {
+      if (ch === '"') { inQuotes = !inQuotes; }
+      else if (ch === ',' && !inQuotes) { fields.push(current.trim()); current = ''; }
+      else { current += ch; }
+    }
+    fields.push(current.trim());
+    const obj = { _idx: idx };
+    headers.forEach((h, i) => obj[h] = (fields[i] || '').replace(/"/g,'').trim());
+    return obj;
+  }).filter(p => p.name || p.prompt);
+}
+
+function renderCategories() {
+  const cats = ['all', ...new Set(allPrompts.map(p => p.category).filter(Boolean))];
+  const row = document.getElementById('lib-filter-row');
+  row.innerHTML = cats.map(c => `
+    <span class="chip ${c === activeCategory ? 'active' : ''}"
+      onclick="setLibCategory('${c}', this)">${c === 'all' ? 'Все' : c}</span>
+  `).join('');
+}
+
+function setLibCategory(cat, el) {
+  activeCategory = cat;
+  document.querySelectorAll('#lib-filter-row .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  filterLibrary();
+}
+
+function filterLibrary() {
+  const q = (document.getElementById('lib-search')?.value || '').toLowerCase();
+  const filtered = allPrompts.filter(p => {
+    const matchCat = activeCategory === 'all' || p.category === activeCategory;
+    const matchQ = !q || (p.name||'').toLowerCase().includes(q) ||
+      (p.tags||'').toLowerCase().includes(q) || (p.prompt||'').toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+  renderLibrary(filtered);
+}
+
+function renderLibrary(prompts) {
+  const grid = document.getElementById('lib-grid');
+  if (!prompts.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--muted);font-size:14px">Ничего не найдено</div>';
+    return;
+  }
+  grid.innerHTML = prompts.map(p => `
+    <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div style="font-size:14px;font-weight:500;color:var(--dark);line-height:1.3">${p.name || 'Без названия'}</div>
+        ${p.category ? `<span style="font-size:10px;background:var(--surface);padding:3px 8px;border-radius:4px;color:var(--muted);white-space:nowrap;flex-shrink:0">${p.category}</span>` : ''}
+      </div>
+      ${p.tags ? `<div style="font-size:11px;color:var(--muted)">${p.tags.split(',').map(t => `<span style="background:var(--surface);padding:2px 7px;border-radius:10px;margin-right:4px">${t.trim()}</span>`).join('')}</div>` : ''}
+      <div style="font-size:13px;color:var(--muted);line-height:1.55;max-height:80px;overflow:hidden;position:relative">
+        ${(p.prompt||'').slice(0,180)}${(p.prompt||'').length > 180 ? '...' : ''}
+      </div>
+      <div style="display:flex;gap:6px;margin-top:auto">
+        <button class="copy-btn" style="flex:1;text-align:center;padding:7px" onclick="copyPrompt(${p._idx})">📋 Копировать</button>
+        <button class="gen-btn" style="flex:1;justify-content:center;font-size:12px;padding:7px 10px" onclick="usePrompt(${p._idx})">Использовать →</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function copyPrompt(idx) {
+  const p = allPrompts[idx];
+  if (p) navigator.clipboard.writeText(p.prompt || '').then(() => alert('Скопировано!'));
+}
+
+function usePrompt(idx) {
+  const p = allPrompts[idx];
+  if (!p) return;
+  // Navigate to right page and fill in the input
+  const catMap = {
+    'reels': 'reels', 'рилс': 'reels',
+    'carousel': 'carousel', 'карусель': 'carousel',
+    'posts': 'posts', 'посты': 'posts', 'пост': 'posts',
+    'stories': 'stories', 'сторис': 'stories',
+    'analysis': 'analysis', 'анализ': 'analysis'
+  };
+  const targetPage = catMap[(p.category||'').toLowerCase()] || null;
+
+  if (targetPage && targetPage !== 'carousel') {
+    // Switch to page
+    const navBtn = document.querySelector(`[onclick="switchPage('${targetPage}',this)"]`);
+    if (navBtn) navBtn.click();
+    // Fill first textarea on that page
+    setTimeout(() => {
+      const ta = document.querySelector(`#page-${targetPage} textarea.inp`);
+      if (ta) { ta.value = p.prompt; ta.focus(); }
+    }, 100);
+  } else if (targetPage === 'carousel') {
+    const navBtn = document.querySelector(`[onclick="switchPage('carousel',this)"]`);
+    if (navBtn) navBtn.click();
+    setTimeout(() => {
+      const ta = document.getElementById('inp-carousel');
+      if (ta) { ta.value = p.prompt; ta.focus(); }
+    }, 100);
+  } else {
+    // Just copy
+    navigator.clipboard.writeText(p.prompt || '');
+    alert('Промпт скопирован — вставь в нужное поле (Ctrl+V)');
+  }
+}
+
+// Auto-load saved URL on page load
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('p_ivan_sheets_url');
+  if (saved) {
+    document.getElementById('sheets-url').value = saved;
+    // Auto-load silently
+    fetch(saved).then(r => r.text()).then(text => {
+      allPrompts = parseCSV(text);
+      renderLibrary(allPrompts);
+      renderCategories();
+    }).catch(() => {});
+  }
+});
+// ========== END LIBRARY ==========
+
 
 // Wire badge chips
 document.querySelectorAll('#cr-badge .chip').forEach(c => {
