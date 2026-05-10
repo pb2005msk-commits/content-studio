@@ -350,8 +350,8 @@ textarea.inp:focus { border-color: var(--gold); background: white; }
               </div>
               <label class="form-label">Стиль оформления</label>
               <div style="display:flex;gap:6px;flex-wrap:wrap">
-                <span class="chip active" data-slide-style="clean" onclick="setSlideStyle('clean',this)">Чистый</span>
-                <span class="chip" data-slide-style="infographic" onclick="setSlideStyle('infographic',this)">Инфографика</span>
+                <span class="chip" data-slide-style="clean" onclick="setSlideStyle('clean',this)">Чистый</span>
+                <span class="chip active" data-slide-style="infographic" onclick="setSlideStyle('infographic',this)">Инфографика</span>
                 <span class="chip" data-slide-style="sketch" onclick="setSlideStyle('sketch',this)">Скетч</span>
               </div>
             </div>
@@ -848,7 +848,7 @@ function loadSlideToEditor(i) {
   // type
   document.querySelectorAll('[data-slide-type]').forEach(c => c.classList.toggle('active', c.dataset.slideType === (s.type||'content')));
   // style
-  const slideStyle = s.style || 'clean';
+  const slideStyle = s.style || 'infographic';
   document.querySelectorAll('[data-slide-style]').forEach(c => c.classList.toggle('active', c.dataset.slideStyle === slideStyle));
   drawSlide();
 }
@@ -1132,12 +1132,27 @@ async function downloadAllSlides() {
 // ========== DATA-DRIVEN INFOGRAPHIC RENDERER ==========
 
 function drawSlideStyle(ctx, s, SZ, PAD, C, currentCombo) {
+  const style = s.style || 'infographic';
   const viz = s.viz;
-  if (!viz || !viz.type) {
-    if (s.style === 'sketch') drawSketchAccents(ctx, s, SZ, PAD, s.type || 'content');
+
+  if (style === 'clean') {
+    // No decorations at all
     return;
   }
-  drawViz(ctx, viz, s, SZ, PAD, C);
+
+  if (style === 'sketch') {
+    // Only sketch lines, no data viz
+    drawSketchAccents(ctx, s, SZ, PAD, s.type || 'content');
+    return;
+  }
+
+  // style === 'infographic' (default)
+  if (viz && viz.type) {
+    drawViz(ctx, viz, s, SZ, PAD, C);
+  } else {
+    // No viz data — draw generic sketch accent as fallback
+    drawSketchAccents(ctx, s, SZ, PAD, s.type || 'content');
+  }
 }
 
 function drawViz(ctx, viz, s, SZ, PAD, C) {
@@ -1495,21 +1510,65 @@ function drawViz(ctx, viz, s, SZ, PAD, C) {
 
 function drawSketchAccents(ctx, s, SZ, PAD, type) {
   const isLight = type === 'cover';
+  const alpha = isLight ? 0.13 : 0.11;
+  const col = isLight ? `rgba(12,11,9,${alpha})` : `rgba(240,233,220,${alpha})`;
+  const orangeCol = `rgba(212,88,26,${alpha * 1.2})`;
+
   ctx.save();
-  ctx.strokeStyle = isLight ? 'rgba(12,11,9,0.06)' : 'rgba(240,233,220,0.05)';
+
+  // Large organic blob bottom-right
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 10]);
+  ctx.beginPath();
+  ctx.moveTo(SZ - 60, SZ * 0.65);
+  ctx.bezierCurveTo(SZ + 40, SZ * 0.55, SZ + 20, SZ * 0.85, SZ - 80, SZ * 0.92);
+  ctx.bezierCurveTo(SZ - 220, SZ, SZ - 260, SZ * 0.82, SZ - 200, SZ * 0.68);
+  ctx.bezierCurveTo(SZ - 160, SZ * 0.58, SZ - 100, SZ * 0.62, SZ - 60, SZ * 0.65);
+  ctx.stroke();
+
+  // Inner blob
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 8]);
+  ctx.beginPath();
+  ctx.moveTo(SZ - 90, SZ * 0.68);
+  ctx.bezierCurveTo(SZ - 20, SZ * 0.63, SZ - 10, SZ * 0.82, SZ - 110, SZ * 0.90);
+  ctx.bezierCurveTo(SZ - 200, SZ * 0.96, SZ - 230, SZ * 0.82, SZ - 185, SZ * 0.71);
+  ctx.bezierCurveTo(SZ - 155, SZ * 0.63, SZ - 115, SZ * 0.65, SZ - 90, SZ * 0.68);
+  ctx.stroke();
+
+  // Dashed circle top-right
+  ctx.strokeStyle = orangeCol;
   ctx.lineWidth = 1.2;
+  ctx.setLineDash([8, 12]);
+  ctx.beginPath();
+  ctx.arc(SZ - 110, 110, 78, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.lineWidth = 0.8;
   ctx.setLineDash([4, 8]);
   ctx.beginPath();
-  ctx.moveTo(SZ - PAD - 20, SZ - 200);
-  ctx.bezierCurveTo(SZ - 40, SZ - 280, SZ - 160, SZ - 320, SZ - 200, SZ - 200);
-  ctx.bezierCurveTo(SZ - 240, SZ - 100, SZ - PAD - 60, SZ - 120, SZ - PAD - 20, SZ - 200);
+  ctx.arc(SZ - 110, 110, 46, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.setLineDash([6, 10]);
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(SZ - 100, 100, 65, 0, Math.PI * 2); ctx.stroke();
-  ctx.setLineDash([3, 7]);
-  ctx.beginPath(); ctx.arc(SZ - 100, 100, 38, 0, Math.PI * 2); ctx.stroke();
+
+  // Crosshair inside circle
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 0.8;
+  ctx.setLineDash([2, 8]);
+  ctx.beginPath();
+  ctx.moveTo(SZ - 110, 32); ctx.lineTo(SZ - 110, 188);
+  ctx.moveTo(SZ - 188, 110); ctx.lineTo(SZ - 32, 110);
+  ctx.stroke();
+
+  // Small dot accents
   ctx.setLineDash([]);
+  ctx.fillStyle = orangeCol;
+  [[PAD + 30, SZ * 0.62], [PAD + 60, SZ * 0.58], [SZ/2, SZ * 0.60]].forEach(([x, y]) => {
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI*2);
+    ctx.fill();
+  });
+
   ctx.restore();
 }
 
