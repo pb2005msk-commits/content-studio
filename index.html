@@ -1255,25 +1255,8 @@ async function downloadAllSlides() {
 // ========== DATA-DRIVEN INFOGRAPHIC RENDERER ==========
 
 function drawSlideStyle(ctx, s, SZ, PAD, C, currentCombo) {
-  const style = s.style || 'infographic';
-  const viz = s.viz;
-  const sketch = s.sketch;
-
-  if (style === 'clean') return;
-
-  if (style === 'sketch') {
-    drawSketchAccents(ctx, s, SZ, PAD, s.type || 'content');
-    return;
-  }
-
-  // infographic mode: prefer viz data, then sketch, then abstract fallback
-  if (viz && viz.type) {
-    drawViz(ctx, viz, s, SZ, PAD, C);
-  } else if (sketch && sketch.type) {
-    drawSketchAccents(ctx, s, SZ, PAD, s.type || 'content');
-  } else if (s.type === 'content') {
-    drawSketchAccents(ctx, s, SZ, PAD, s.type);
-  }
+  // Clean mode — no infographic, no sketch
+  return;
 }
 
 function drawViz(ctx, viz, s, SZ, PAD, C) {
@@ -1288,15 +1271,7 @@ function drawViz(ctx, viz, s, SZ, PAD, C) {
   const vizH = SZ * 0.32;
   const vizW = SZ - PAD * 2;
 
-  // Subtle separator line
-  ctx.strokeStyle = isLight ? 'rgba(12,11,9,0.08)' : 'rgba(240,233,220,0.07)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 8]);
-  ctx.beginPath();
-  ctx.moveTo(PAD, vizY - 24);
-  ctx.lineTo(SZ - PAD, vizY - 24);
-  ctx.stroke();
-  ctx.setLineDash([]);
+
 
   switch(viz.type) {
 
