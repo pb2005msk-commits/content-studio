@@ -348,25 +348,7 @@ textarea.inp:focus { border-color: var(--gold); background: white; }
                 <span class="chip" data-slide-type="quote" onclick="setSlideType('quote',this)">Цитата</span>
                 <span class="chip" data-slide-type="cta" onclick="setSlideType('cta',this)">Призыв</span>
               </div>
-              <label class="form-label">Стиль оформления</label>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-                <span class="chip" data-slide-style="clean" onclick="setSlideStyle('clean',this)">Чистый</span>
-                <span class="chip active" data-slide-style="infographic" onclick="setSlideStyle('infographic',this)">Инфографика</span>
-                <span class="chip" data-slide-style="sketch" onclick="setSlideStyle('sketch',this)">Скетч</span>
-              </div>
 
-              <div id="custom-visual-block" style="background:var(--surface);border-radius:8px;padding:12px;border:1px solid var(--border)">
-                <label class="form-label" style="margin-bottom:6px">✏️ Свой скетч или инфографика</label>
-                <textarea class="inp" id="custom-visual-prompt" rows="2" placeholder="Опиши что нарисовать: «торт в разрезе с малиновым муссом» или «шкала температур 45-27-32°C»..." style="margin-bottom:8px;font-size:13px"></textarea>
-                <div style="display:flex;gap:6px">
-                  <button class="gen-btn" style="flex:1;justify-content:center;font-size:12px;padding:8px 10px" onclick="regenSketch()">
-                    <span class="spinner" id="sp-regen-sketch" style="display:none"></span>🎨 Нарисовать скетч
-                  </button>
-                  <button class="gen-btn" style="flex:1;justify-content:center;font-size:12px;padding:8px 10px;background:var(--brown)" onclick="regenViz()">
-                    <span class="spinner" id="sp-regen-viz" style="display:none"></span>📊 Сделать инфографику
-                  </button>
-                </div>
-              </div>
             </div>
             <div>
               <div style="font-size:11px;font-weight:500;color:var(--muted);letter-spacing:0.06em;margin-bottom:12px">ПРЕВЬЮ</div>
