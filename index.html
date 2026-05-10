@@ -739,7 +739,7 @@ async function generate(id) {
   body.innerHTML = '<div class="dots-loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span>Генерирую...</span></div>';
 
   try {
-    const r = await fetch('/.netlify/functions/claude', {
+    const r = await fetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -814,7 +814,7 @@ async function generateSVGSketch(subject) {
 - Верни ТОЛЬКО SVG-код начиная с <svg и заканчивая </svg>. Ничего кроме SVG.`;
 
   try {
-    const r = await fetch('/.netlify/functions/claude', {
+    const r = await fetch('/api/claude', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
@@ -866,7 +866,7 @@ async function generateCarousel() {
 
   try {
     btnText.textContent = ' Генерирую структуру...';
-    const r = await fetch('/.netlify/functions/claude', {
+    const r = await fetch('/api/claude', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
@@ -2372,7 +2372,7 @@ async function regenViz() {
   try {
     const slide = slides[currentSlide];
     const slideContext = `Заголовок: "${slide.title || ''}". Текст: "${slide.body || ''}"`;
-    const r = await fetch('/.netlify/functions/claude', {
+    const r = await fetch('/api/claude', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
@@ -2426,7 +2426,7 @@ async function fetchSVGSketch(cacheKey, subject) {
 - Верни ТОЛЬКО SVG-код от <svg до </svg>, без пояснений`;
 
   try {
-    const r = await fetch('/.netlify/functions/claude', {
+    const r = await fetch('/api/claude', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
