@@ -982,9 +982,13 @@ function loadSlideToEditor(i) {
   const slideStyle = s.style || 'infographic';
   document.querySelectorAll('[data-slide-style]').forEach(c => c.classList.toggle('active', c.dataset.slideStyle === slideStyle));
   drawSlide();
-  // If SVG sketch pending, redraw after image loads
+  // If SVG sketch, redraw after image loads
   if (s._svgSketch && slideStyle === 'sketch') {
-    setTimeout(() => drawSlide(), 150);
+    const ck = s._svgSketch.slice(0, 100);
+    if (!svgImageCache[ck]) {
+      setTimeout(() => drawSlide(), 400);
+      setTimeout(() => drawSlide(), 900);
+    }
   }
 }
 
@@ -1641,14 +1645,16 @@ function drawViz(ctx, viz, s, SZ, PAD, C) {
   }
 }
 
+// Image cache for SVG sketches
+const svgImageCache = {};
+
 function drawSVGSketchOnCanvas(ctx, svgString, SZ, PAD, type) {
-  // Draw SVG sketch in bottom viz zone
   const vizY = SZ * 0.60;
   const vizH = SZ * 0.32;
   const vizW = SZ - PAD * 2;
-
-  // Subtle separator
   const isLight = type === 'cover';
+
+  // Separator line
   ctx.strokeStyle = isLight ? 'rgba(12,11,9,0.07)' : 'rgba(240,233,220,0.06)';
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 8]);
@@ -1658,25 +1664,41 @@ function drawSVGSketchOnCanvas(ctx, svgString, SZ, PAD, type) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Draw SVG as image
+  // Check image cache
+  const cacheKey = svgString.slice(0, 100);
+  if (svgImageCache[cacheKey]) {
+    const img = svgImageCache[cacheKey];
+    renderSVGImage(ctx, img, vizY, vizH, vizW, PAD, SZ);
+    return;
+  }
+
+  // Load and cache
   const blob = new Blob([svgString], {type:'image/svg+xml'});
   const url = URL.createObjectURL(blob);
   const img = new Image();
   img.onload = () => {
-    // Center and fit in viz zone
-    const scale = Math.min(vizW / img.width, vizH / img.height) * 0.95;
-    const dw = img.width * scale;
-    const dh = img.height * scale;
-    const dx = PAD + (vizW - dw) / 2;
-    const dy = vizY + (vizH - dh) / 2;
-
-    ctx.save();
-    ctx.globalAlpha = 0.85;
-    ctx.drawImage(img, dx, dy, dw, dh);
-    ctx.restore();
+    svgImageCache[cacheKey] = img;
+    URL.revokeObjectURL(url);
+    // Redraw entire slide now that image is ready
+    drawSlide();
+  };
+  img.onerror = (e) => {
+    console.error('SVG image load error:', e);
     URL.revokeObjectURL(url);
   };
   img.src = url;
+}
+
+function renderSVGImage(ctx, img, vizY, vizH, vizW, PAD, SZ) {
+  const scale = Math.min(vizW / (img.width||400), vizH / (img.height||300)) * 0.92;
+  const dw = (img.width||400) * scale;
+  const dh = (img.height||300) * scale;
+  const dx = PAD + (vizW - dw) / 2;
+  const dy = vizY + (vizH - dh) / 2;
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  ctx.drawImage(img, dx, dy, dw, dh);
+  ctx.restore();
 }
 
 function drawSketchAccents(ctx, s, SZ, PAD, type) {
@@ -2306,8 +2328,13 @@ async function regenSketch() {
   const svg = await fetchSVGSketch(uniqueKey, fullSubject);
   if (svg) {
     slides[currentSlide]._svgSketch = svg;
+    // Clear image cache for this slide so it reloads
+    const cacheKey = svg.slice(0, 100);
+    delete svgImageCache[cacheKey];
     drawSlide();
-    setTimeout(() => drawSlide(), 300);
+    // Redraw after image loads
+    setTimeout(() => drawSlide(), 500);
+    setTimeout(() => drawSlide(), 1200);
   } else {
     alert('Не удалось нарисовать скетч — попробуй ещё раз или уточни описание');
   }
